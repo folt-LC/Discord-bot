@@ -1,0 +1,12 @@
+{
+  "name": "@workspace/discord-bot",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A small Discord bot with ping and greeting commands.",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.24.2"
+  }
+}

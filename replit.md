@@ -1,10 +1,11 @@
-# [Project name]
+# JavaScript Discord Bot
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A small Discord bot that stays online and responds to `/ping` and `/hello`.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/discord-bot start` — run the Discord bot
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -22,23 +23,30 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `discord-bot/src/index.js` — Discord client, login, commands, and shutdown handling
+- `discord-bot/README.md` — Discord Developer Portal setup and command reference
+- `TOKEN` secret — bot token, managed through Replit Secrets
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The bot uses Discord Gateway events through `discord.js`.
+- The token is read only from the `TOKEN` environment secret.
+- The bot runs as a console workflow rather than a web server.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Stays connected to Discord while the workflow is running.
+- Responds to `!ping` with latency.
+- Responds to `!hello` with a greeting.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Use JavaScript for the Discord bot.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- The bot must be invited with the `applications.commands` scope for slash commands to appear.
+- Do not print or commit the `TOKEN` value.
 
 ## Pointers
 
