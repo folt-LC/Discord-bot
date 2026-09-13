@@ -18,6 +18,10 @@ const client = new Client({
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Discord bot online as ${readyClient.user.tag}`);
+  const serverNames = readyClient.guilds.cache.map((guild) => guild.name);
+  console.log(
+    `Connected to ${serverNames.length ? serverNames.join(", ") : "no servers yet"}`,
+  );
   readyClient.application.commands
     .set([
       {
