@@ -46,6 +46,7 @@ A small Discord bot that stays online and responds to `/ping` and `/hello`.
 ## Gotchas
 
 - The bot must be invited with the `applications.commands` scope for slash commands to appear.
+- Server Members Intent must be enabled for welcome DMs to trigger on new joins.
 - Do not print or commit the `TOKEN` value.
 
 ## Pointers

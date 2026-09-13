@@ -5,6 +5,8 @@ const {
 } = require("discord.js");
 
 const token = process.env.TOKEN;
+const welcomeMessage =
+  "Hello and welcome to the Mendive SMP! We are thrilled to have you join our community! Grab your gear, build something epic, and most importantly, have fun surviving out there.";
 
 if (!token) {
   throw new Error(
@@ -13,7 +15,7 @@ if (!token) {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
 });
 
 client.once(Events.ClientReady, (readyClient) => {
@@ -52,6 +54,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (interaction.commandName === "hello") {
     await interaction.reply(`Hello, ${interaction.user}!`);
+  }
+});
+
+client.on(Events.GuildMemberAdd, async (member) => {
+  try {
+    await member.send(welcomeMessage);
+    console.log(`Sent a welcome DM to ${member.user.tag}`);
+  } catch (error) {
+    console.error(
+      `Could not send a welcome DM to ${member.user.tag}. Their DMs may be disabled.`,
+      error,
+    );
   }
 });
 
