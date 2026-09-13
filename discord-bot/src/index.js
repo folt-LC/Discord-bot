@@ -6,6 +6,7 @@ const {
 } = require("discord.js");
 
 const token = process.env.TOKEN;
+const teamManagerUserId = "1409996406097186866";
 const welcomeMessage =
   "Hello and welcome to the Mendive SMP! We are thrilled to have you join our community! Grab your gear, build something epic, and most importantly, have fun surviving out there.";
 
@@ -106,10 +107,22 @@ client.once(Events.ClientReady, (readyClient) => {
           },
         ],
       },
+      {
+        name: "team-delete",
+        description: "Delete a team role (team manager only)",
+        options: [
+          {
+            type: 3,
+            name: "name",
+            description: "The name of the team",
+            required: true,
+          },
+        ],
+      },
     ])
     .then(() => {
       console.log(
-        "Registered /ping, /hello, /team-create, /team-join, and /team-leave",
+        "Registered /ping, /hello, /team-create, /team-join, /team-leave, and /team-delete",
       );
     })
     .catch((error) => {
@@ -131,7 +144,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (
-    !["team-create", "team-join", "team-leave"].includes(
+    !["team-create", "team-join", "team-leave", "team-delete"].includes(
       interaction.commandName,
     )
   ) {
@@ -141,6 +154,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.inGuild()) {
     await interaction.reply(
       "🏠  Team commands can only be used inside a server.",
+    );
+    return;
+  }
+
+  if (
+    interaction.commandName === "team-delete" &&
+    interaction.user.id !== teamManagerUserId
+  ) {
+    await interaction.reply(
+      "🚫  Only the team manager can delete teams.",
     );
     return;
   }
@@ -166,6 +189,33 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await interaction.reply(
       "⚠️  That name belongs to a managed Discord role and cannot be used as a team.",
     );
+    return;
+  }
+
+  if (interaction.commandName === "team-delete") {
+    if (!existingRole || existingRole.id === interaction.guild.id) {
+      await interaction.reply(
+        `🔎  I couldn't find a deletable team named **${teamName}**.`,
+      );
+      return;
+    }
+
+    if (!canManageRole(interaction.guild, existingRole)) {
+      await interaction.reply(
+        "❌  I can't delete that team role. Move my highest role above it in Server Settings.",
+      );
+      return;
+    }
+
+    try {
+      await existingRole.delete(`Team deleted by ${interaction.user.tag}`);
+      await interaction.reply(`✅  Team **${teamName}** was deleted.`);
+    } catch (error) {
+      console.error(`Could not delete team ${teamName}:`, error);
+      await interaction.reply(
+        "❌  I couldn't delete that team. Check my Manage Roles permission and role order.",
+      );
+    }
     return;
   }
 
