@@ -2,6 +2,7 @@ const {
   Client,
   Events,
   GatewayIntentBits,
+  PermissionFlagsBits,
 } = require("discord.js");
 
 const token = process.env.TOKEN;
@@ -17,6 +18,41 @@ if (!token) {
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
 });
+
+function findRoleByName(guild, teamName) {
+  const normalizedName = teamName.toLowerCase();
+  return guild.roles.cache.find(
+    (role) => role.name.toLowerCase() === normalizedName,
+  );
+}
+
+function canManageRoles(guild) {
+  const botMember = guild.members.me;
+  return Boolean(
+    botMember?.permissions.has(PermissionFlagsBits.ManageRoles),
+  );
+}
+
+function canManageRole(guild, role) {
+  const botMember = guild.members.me;
+  return Boolean(
+    botMember &&
+      !role.managed &&
+      botMember.roles.highest.position > role.position,
+  );
+}
+
+function getTeamName(interaction) {
+  return interaction.options.getString("name", true).trim();
+}
+
+function isValidTeamName(teamName) {
+  return (
+    teamName.length > 0 &&
+    teamName.length <= 100 &&
+    teamName.toLowerCase() !== "@everyone"
+  );
+}
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Discord bot online as ${readyClient.user.tag}`);
@@ -34,9 +70,47 @@ client.once(Events.ClientReady, (readyClient) => {
         name: "hello",
         description: "Get a greeting from the bot",
       },
+      {
+        name: "team-create",
+        description: "Create a team role and join it",
+        options: [
+          {
+            type: 3,
+            name: "name",
+            description: "The name of the team",
+            required: true,
+          },
+        ],
+      },
+      {
+        name: "team-join",
+        description: "Join an existing team",
+        options: [
+          {
+            type: 3,
+            name: "name",
+            description: "The name of the team",
+            required: true,
+          },
+        ],
+      },
+      {
+        name: "team-leave",
+        description: "Leave a team",
+        options: [
+          {
+            type: 3,
+            name: "name",
+            description: "The name of the team",
+            required: true,
+          },
+        ],
+      },
     ])
     .then(() => {
-      console.log("Registered /ping and /hello");
+      console.log(
+        "Registered /ping, /hello, /team-create, /team-join, and /team-leave",
+      );
     })
     .catch((error) => {
       console.error("Could not register slash commands:", error);
@@ -54,6 +128,131 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (interaction.commandName === "hello") {
     await interaction.reply(`Hello, ${interaction.user}!`);
+  }
+
+  if (
+    !["team-create", "team-join", "team-leave"].includes(
+      interaction.commandName,
+    )
+  ) {
+    return;
+  }
+
+  if (!interaction.inGuild()) {
+    await interaction.reply(
+      "🏠  Team commands can only be used inside a server.",
+    );
+    return;
+  }
+
+  const teamName = getTeamName(interaction);
+  if (!isValidTeamName(teamName)) {
+    await interaction.reply(
+      "⚠️  Team names must be between 1 and 100 characters.",
+    );
+    return;
+  }
+
+  if (!canManageRoles(interaction.guild)) {
+    await interaction.reply(
+      "🔒  I need the Manage Roles permission to manage teams.",
+    );
+    return;
+  }
+
+  const existingRole = findRoleByName(interaction.guild, teamName);
+
+  if (existingRole?.managed) {
+    await interaction.reply(
+      "⚠️  That name belongs to a managed Discord role and cannot be used as a team.",
+    );
+    return;
+  }
+
+  if (interaction.commandName === "team-create") {
+    if (existingRole) {
+      await interaction.reply(
+        `⚠️  A team named **${existingRole.name}** already exists. Use \`/team-join\` to join it.`,
+      );
+      return;
+    }
+
+    let teamRole;
+    try {
+      teamRole = await interaction.guild.roles.create({
+        name: teamName,
+        reason: `Team created by ${interaction.user.tag}`,
+      });
+      const member = await interaction.guild.members.fetch(
+        interaction.user.id,
+      );
+      await member.roles.add(teamRole, "Team creator joined their new team");
+      await interaction.reply(
+        `✅  Team **${teamRole.name}** created.\n👤  You have been added to the team.`,
+      );
+    } catch (error) {
+      if (teamRole) {
+        await teamRole.delete("Cleaning up a team that could not be assigned").catch(
+          () => {},
+        );
+      }
+      console.error(`Could not create team ${teamName}:`, error);
+      await interaction.reply(
+        "❌  I couldn't create that team. Make sure my highest role is above the team roles.",
+      );
+    }
+    return;
+  }
+
+  if (!existingRole) {
+    await interaction.reply(
+      `🔎  I couldn't find a team named **${teamName}**.`,
+    );
+    return;
+  }
+
+  if (!canManageRole(interaction.guild, existingRole)) {
+    await interaction.reply(
+      "❌  I can't manage that team role. Move my highest role above it in Server Settings.",
+    );
+    return;
+  }
+
+  try {
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    const alreadyInTeam = member.roles.cache.has(existingRole.id);
+
+    if (interaction.commandName === "team-join") {
+      if (alreadyInTeam) {
+        await interaction.reply(
+          `ℹ️  You are already on team **${existingRole.name}**.`,
+        );
+        return;
+      }
+      await member.roles.add(existingRole, "Member joined a team");
+      await interaction.reply(
+        `✅  You joined team **${existingRole.name}**.`,
+      );
+      return;
+    }
+
+    if (!alreadyInTeam) {
+      await interaction.reply(
+        `ℹ️  You are not currently on team **${existingRole.name}**.`,
+      );
+      return;
+    }
+
+    await member.roles.remove(existingRole, "Member left a team");
+    await interaction.reply(`✅  You left team **${existingRole.name}**.`);
+  } catch (error) {
+    console.error(
+      `Could not update team ${existingRole.name} for ${interaction.user.tag}:`,
+      error,
+    );
+    await interaction.reply(
+      "❌  I couldn't update your team membership. Please check my Manage Roles permission and role order.",
+    );
   }
 });
 
