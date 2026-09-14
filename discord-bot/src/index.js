@@ -29,6 +29,16 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
 });
 
+function setBotOnlinePresence() {
+  if (!client.user) {
+    return;
+  }
+
+  client.user.setPresence({
+    status: "online",
+  });
+}
+
 let minecraftRefreshPromise = null;
 
 function parseServerAddress(address, defaultPort) {
@@ -396,6 +406,7 @@ function isValidTeamName(teamName) {
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Discord bot online as ${readyClient.user.tag}`);
+  setBotOnlinePresence();
   const serverNames = readyClient.guilds.cache.map((guild) => guild.name);
   console.log(
     `Connected to ${serverNames.length ? serverNames.join(", ") : "no servers yet"}`,
@@ -772,6 +783,29 @@ client.on(Events.GuildMemberAdd, async (member) => {
 
 client.on(Events.Error, (error) => {
   console.error("Discord client error:", error);
+});
+
+client.on(Events.ShardReady, (shardId) => {
+  console.log(`Discord gateway shard ${shardId} is ready`);
+  setBotOnlinePresence();
+});
+
+client.on(Events.ShardReconnecting, (shardId) => {
+  console.warn(`Discord gateway shard ${shardId} is reconnecting`);
+});
+
+client.on(Events.ShardDisconnect, (closeEvent, shardId) => {
+  console.error(
+    `Discord gateway shard ${shardId} disconnected (code ${closeEvent.code}).`,
+  );
+});
+
+client.on(Events.ShardError, (error, shardId) => {
+  console.error(`Discord gateway shard ${shardId} error:`, error);
+});
+
+process.on("unhandledRejection", (error) => {
+  console.error("Unhandled bot promise rejection:", error);
 });
 
 process.on("SIGTERM", () => {
