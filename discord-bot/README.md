@@ -9,6 +9,7 @@ This bot logs in with the `TOKEN` secret and registers these slash commands:
 - `/team-create name:<name>` — creates a team role and gives it to you
 - `/team-join name:<name>` — gives you an existing team role
 - `/team-leave name:<name>` — removes an existing team role from you
+- `/team-delete name:<name>` — deletes a team role; restricted to the team manager
 
 ## Discord setup
 

@@ -41,6 +41,7 @@ A small Discord bot that stays online and responds to `/ping` and `/hello`.
 - Shows on-demand Java/Bedrock Minecraft status and player counts through `/mcstatus`.
 - Provides the always-available Mendive SMP address through `/ip`.
 - Lets members create, join, and leave team roles.
+- Lets the configured team manager delete team roles through `/team-delete`.
 
 ## User preferences
 
@@ -51,6 +52,7 @@ A small Discord bot that stays online and responds to `/ping` and `/hello`.
 - The bot must be invited with the `applications.commands` scope for slash commands to appear.
 - Server Members Intent must be enabled for welcome DMs to trigger on new joins.
 - `/mcstatus` performs a fresh server check only when a user runs the command.
+- Only Discord user ID `1409996406097186866` can use `/team-delete`.
 - Do not print or commit the `TOKEN` value.
 
 ## Pointers
