@@ -466,10 +466,28 @@ client.once(Events.ClientReady, (readyClient) => {
           },
         ],
       },
+      {
+        name: "team-force",
+        description: "Force a member onto an existing team (team manager only)",
+        options: [
+          {
+            type: 3,
+            name: "name",
+            description: "The name of the existing team",
+            required: true,
+          },
+          {
+            type: 6,
+            name: "member",
+            description: "The member to add to the team",
+            required: true,
+          },
+        ],
+      },
     ])
     .then(() => {
       console.log(
-        "Registered /ping, /hello, /mcstatus, /ip, /team-create, /team-join, /team-leave, and /team-delete",
+        "Registered /ping, /hello, /mcstatus, /ip, /team-create, /team-join, /team-leave, /team-delete, and /team-force",
       );
     })
     .catch((error) => {
@@ -515,7 +533,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (
-    !["team-create", "team-join", "team-leave", "team-delete"].includes(
+    ![
+      "team-create",
+      "team-join",
+      "team-leave",
+      "team-delete",
+      "team-force",
+    ].includes(
       interaction.commandName,
     )
   ) {
@@ -530,11 +554,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (
-    interaction.commandName === "team-delete" &&
+    ["team-delete", "team-force"].includes(interaction.commandName) &&
     interaction.user.id !== teamManagerUserId
   ) {
     await interaction.reply(
-      "🚫  Only the team manager can delete teams.",
+      "🚫  Only the team manager can use this command.",
     );
     return;
   }
@@ -585,6 +609,52 @@ client.on(Events.InteractionCreate, async (interaction) => {
       console.error(`Could not delete team ${teamName}:`, error);
       await interaction.reply(
         "❌  I couldn't delete that team. Check my Manage Roles permission and role order.",
+      );
+    }
+    return;
+  }
+
+  if (interaction.commandName === "team-force") {
+    if (!existingRole) {
+      await interaction.reply(
+        `🔎  I couldn't find an existing team named **${teamName}**.`,
+      );
+      return;
+    }
+
+    if (!canManageRole(interaction.guild, existingRole)) {
+      await interaction.reply(
+        "❌  I can't manage that team role. Move my highest role above it in Server Settings.",
+      );
+      return;
+    }
+
+    const targetUser = interaction.options.getUser("member", true);
+    try {
+      const targetMember = await interaction.guild.members.fetch(targetUser.id);
+      const alreadyInTeam = targetMember.roles.cache.has(existingRole.id);
+
+      if (alreadyInTeam) {
+        await interaction.reply(
+          `ℹ️  ${targetUser} is already on team **${existingRole.name}**.`,
+        );
+        return;
+      }
+
+      await targetMember.roles.add(
+        existingRole,
+        `Team manager added ${targetUser.tag} to the team`,
+      );
+      await interaction.reply(
+        `✅  ${targetUser} was added to team **${existingRole.name}**.`,
+      );
+    } catch (error) {
+      console.error(
+        `Could not force ${targetUser.tag} onto team ${existingRole.name}:`,
+        error,
+      );
+      await interaction.reply(
+        "❌  I couldn't add that member. Check my Manage Roles permission and role order.",
       );
     }
     return;
