@@ -2,7 +2,6 @@ const dgram = require("node:dgram");
 const net = require("node:net");
 const minecraftStatusPinger = require("minecraftstatuspinger");
 const {
-  ActivityType,
   Client,
   EmbedBuilder,
   Events,
@@ -12,14 +11,12 @@ const {
 
 const token = process.env.TOKEN;
 const minecraftServerAddress = process.env.MC_SERVER_IP?.trim();
-const teamManagerUserId = "1409996406097186866";
 const welcomeMessage =
   "Hello and welcome to the Mendive SMP! We are thrilled to have you join our community! Grab your gear, build something epic, and most importantly, have fun surviving out there.";
 const bedrockMagic = Buffer.from([
   0x00, 0xff, 0xff, 0x00, 0xfe, 0xfe, 0xfe, 0xfe, 0xfd, 0xfd, 0xfd, 0xfd,
   0x12, 0x34, 0x56, 0x78,
 ]);
-const minecraftStatusPollIntervalMs = 60_000;
 
 if (!token) {
   throw new Error(
@@ -31,20 +28,6 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
 });
 
-let latestMinecraftStatus = {
-  online: false,
-  edition: "Unknown",
-  host: minecraftServerAddress || "Not configured",
-  port: null,
-  version: "Unknown",
-  motd: "",
-  onlinePlayers: 0,
-  maxPlayers: 0,
-  players: [],
-  latency: null,
-  checkedAt: null,
-  error: "Minecraft server status has not been checked yet.",
-};
 let minecraftRefreshPromise = null;
 
 function parseServerAddress(address, defaultPort) {
@@ -113,10 +96,10 @@ function normalizePlayerNames(players) {
 function createOfflineMinecraftStatus(host, port, error) {
   return {
     online: false,
-    edition: "Unknown",
+    edition: "Not available",
     host,
     port,
-    version: "Unknown",
+    version: "Not available",
     motd: "",
     onlinePlayers: 0,
     maxPlayers: 0,
@@ -219,38 +202,26 @@ function queryBedrockMinecraftServer(host, port) {
   });
 }
 
-function updateMinecraftActivity(status) {
-  if (!client.user) {
-    return;
-  }
-
-  client.user.setActivity(
-    `${status.onlinePlayers}/${status.maxPlayers} players`,
-    { type: ActivityType.Playing },
-  );
-}
-
 function logMinecraftStatus(status) {
   console.log(
     `Minecraft status: ${status.online ? "online" : "offline"} (${status.edition}) ${status.onlinePlayers}/${status.maxPlayers} players`,
   );
 }
 
-async function refreshMinecraftStatus() {
+async function checkMinecraftStatus() {
   if (minecraftRefreshPromise) {
     return minecraftRefreshPromise;
   }
 
   minecraftRefreshPromise = (async () => {
     if (!minecraftServerAddress) {
-      latestMinecraftStatus = createOfflineMinecraftStatus(
+      const status = createOfflineMinecraftStatus(
         "Not configured",
         null,
         "MC_SERVER_IP is not configured.",
       );
-      updateMinecraftActivity(latestMinecraftStatus);
-      logMinecraftStatus(latestMinecraftStatus);
-      return latestMinecraftStatus;
+      logMinecraftStatus(status);
+      return status;
     }
 
     let javaAddress;
@@ -259,39 +230,40 @@ async function refreshMinecraftStatus() {
       javaAddress = parseServerAddress(minecraftServerAddress, 25565);
       bedrockAddress = parseServerAddress(minecraftServerAddress, 19132);
     } catch {
-      latestMinecraftStatus = createOfflineMinecraftStatus(
+      const status = createOfflineMinecraftStatus(
         minecraftServerAddress,
         null,
         "MC_SERVER_IP is not a valid host or host:port address.",
       );
-      updateMinecraftActivity(latestMinecraftStatus);
-      logMinecraftStatus(latestMinecraftStatus);
-      return latestMinecraftStatus;
+      logMinecraftStatus(status);
+      return status;
     }
 
     try {
-      latestMinecraftStatus = await queryJavaMinecraftServer(
+      const status = await queryJavaMinecraftServer(
         javaAddress.host,
         javaAddress.port,
       );
+      logMinecraftStatus(status);
+      return status;
     } catch {
       try {
-        latestMinecraftStatus = await queryBedrockMinecraftServer(
+        const status = await queryBedrockMinecraftServer(
           bedrockAddress.host,
           bedrockAddress.port,
         );
+        logMinecraftStatus(status);
+        return status;
       } catch {
-        latestMinecraftStatus = createOfflineMinecraftStatus(
+        const status = createOfflineMinecraftStatus(
           javaAddress.host,
           javaAddress.port,
           "The server is offline or did not respond to Java or Bedrock status checks.",
         );
+        logMinecraftStatus(status);
+        return status;
       }
     }
-
-    updateMinecraftActivity(latestMinecraftStatus);
-    logMinecraftStatus(latestMinecraftStatus);
-    return latestMinecraftStatus;
   })().finally(() => {
     minecraftRefreshPromise = null;
   });
@@ -307,6 +279,31 @@ function shortenEmbedField(value, maxLength = 1024) {
 }
 
 function buildMinecraftStatusEmbed(status) {
+  if (!status.online) {
+    return new EmbedBuilder()
+      .setTitle("Minecraft Server Status")
+      .setColor(0xed4245)
+      .addFields(
+        {
+          name: "Status",
+          value: "🔴 Server Status: Offline / Booting up",
+        },
+        {
+          name: "Players",
+          value: "0/0 players",
+          inline: true,
+        },
+        {
+          name: "Connection note",
+          value: "Launch the start file and playit.gg to connect.",
+        },
+      )
+      .setFooter({
+        text: "Use /ip to copy the connection address",
+      })
+      .setTimestamp(status.checkedAt || Date.now());
+  }
+
   const playerList = status.players.length
     ? status.players.join("\n")
     : status.edition === "Bedrock"
@@ -319,7 +316,7 @@ function buildMinecraftStatusEmbed(status) {
     .addFields(
       {
         name: "Status",
-        value: status.online ? "🟢 Online" : "🔴 Offline",
+        value: "🟢 Server Status: Online",
         inline: true,
       },
       {
@@ -349,9 +346,6 @@ function buildMinecraftStatusEmbed(status) {
 
   if (status.motd) {
     embed.setDescription(status.motd);
-  }
-  if (!status.online && status.error) {
-    embed.addFields({ name: "Details", value: status.error });
   }
   if (status.latency !== null) {
     embed.addFields({
@@ -420,6 +414,10 @@ client.once(Events.ClientReady, (readyClient) => {
         description: "Show the Minecraft server status",
       },
       {
+        name: "ip",
+        description: "Show the Mendive SMP connection address",
+      },
+      {
         name: "team-create",
         description: "Create a team role and join it",
         options: [
@@ -455,36 +453,16 @@ client.once(Events.ClientReady, (readyClient) => {
           },
         ],
       },
-      {
-        name: "team-delete",
-        description: "Delete a team role (team manager only)",
-        options: [
-          {
-            type: 3,
-            name: "name",
-            description: "The name of the team",
-            required: true,
-          },
-        ],
-      },
     ])
     .then(() => {
       console.log(
-        "Registered /ping, /hello, /mcstatus, /team-create, /team-join, /team-leave, and /team-delete",
+        "Registered /ping, /hello, /mcstatus, /ip, /team-create, /team-join, and /team-leave",
       );
     })
     .catch((error) => {
       console.error("Could not register slash commands:", error);
     });
 
-  refreshMinecraftStatus().catch((error) => {
-    console.error("Initial Minecraft status check failed:", error);
-  });
-  setInterval(() => {
-    refreshMinecraftStatus().catch((error) => {
-      console.error("Scheduled Minecraft status check failed:", error);
-    });
-  }, minecraftStatusPollIntervalMs);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -500,10 +478,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await interaction.reply(`Hello, ${interaction.user}!`);
   }
 
+  if (interaction.commandName === "ip") {
+    await interaction.reply(
+      "🎮 Connection Info: willed-loading.gl.at.ply.gg:22376",
+    );
+    return;
+  }
+
   if (interaction.commandName === "mcstatus") {
     await interaction.deferReply();
     try {
-      const status = await refreshMinecraftStatus();
+      const status = await checkMinecraftStatus();
       await interaction.editReply({
         embeds: [buildMinecraftStatusEmbed(status)],
       });
@@ -517,7 +502,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (
-    !["team-create", "team-join", "team-leave", "team-delete"].includes(
+    !["team-create", "team-join", "team-leave"].includes(
       interaction.commandName,
     )
   ) {
@@ -527,16 +512,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.inGuild()) {
     await interaction.reply(
       "🏠  Team commands can only be used inside a server.",
-    );
-    return;
-  }
-
-  if (
-    interaction.commandName === "team-delete" &&
-    interaction.user.id !== teamManagerUserId
-  ) {
-    await interaction.reply(
-      "🚫  Only the team manager can delete teams.",
     );
     return;
   }
@@ -562,33 +537,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await interaction.reply(
       "⚠️  That name belongs to a managed Discord role and cannot be used as a team.",
     );
-    return;
-  }
-
-  if (interaction.commandName === "team-delete") {
-    if (!existingRole || existingRole.id === interaction.guild.id) {
-      await interaction.reply(
-        `🔎  I couldn't find a deletable team named **${teamName}**.`,
-      );
-      return;
-    }
-
-    if (!canManageRole(interaction.guild, existingRole)) {
-      await interaction.reply(
-        "❌  I can't delete that team role. Move my highest role above it in Server Settings.",
-      );
-      return;
-    }
-
-    try {
-      await existingRole.delete(`Team deleted by ${interaction.user.tag}`);
-      await interaction.reply(`✅  Team **${teamName}** was deleted.`);
-    } catch (error) {
-      console.error(`Could not delete team ${teamName}:`, error);
-      await interaction.reply(
-        "❌  I couldn't delete that team. Check my Manage Roles permission and role order.",
-      );
-    }
     return;
   }
 
@@ -681,7 +629,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.on(Events.GuildMemberAdd, async (member) => {
   try {
-    await member.send(welcomeMessage);
+    const welcomeEmbed = new EmbedBuilder()
+      .setColor(0x57f287)
+      .setTitle("🎉 Welcome to the Mendive SMP!")
+      .setDescription(welcomeMessage)
+      .addFields({
+        name: "Your next adventure",
+        value:
+          "Grab your gear, build something epic, and have fun surviving out there.",
+      })
+      .setFooter({ text: "Mendive SMP" });
+
+    await member.send({ embeds: [welcomeEmbed] });
     console.log(`Sent a welcome DM to ${member.user.tag}`);
   } catch (error) {
     console.error(

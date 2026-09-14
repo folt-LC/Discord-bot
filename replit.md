@@ -38,8 +38,9 @@ A small Discord bot that stays online and responds to `/ping` and `/hello`.
 - Stays connected to Discord while the workflow is running.
 - Responds to `!ping` with latency.
 - Responds to `!hello` with a greeting.
-- Shows Java/Bedrock Minecraft status and player counts through `/mcstatus`.
-- Lets the team manager create, join, leave, and delete team roles.
+- Shows on-demand Java/Bedrock Minecraft status and player counts through `/mcstatus`.
+- Provides the always-available Mendive SMP address through `/ip`.
+- Lets members create, join, and leave team roles.
 
 ## User preferences
 
@@ -49,8 +50,7 @@ A small Discord bot that stays online and responds to `/ping` and `/hello`.
 
 - The bot must be invited with the `applications.commands` scope for slash commands to appear.
 - Server Members Intent must be enabled for welcome DMs to trigger on new joins.
-- Only the configured team manager Discord account can use `/team-delete`.
-- `MC_SERVER_IP` is checked every 60 seconds; the current target did not answer the live Java or Bedrock probe.
+- `/mcstatus` performs a fresh server check only when a user runs the command.
 - Do not print or commit the `TOKEN` value.
 
 ## Pointers
