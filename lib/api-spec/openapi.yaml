@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: bot-control
+    description: Password-protected bot process controls
 paths:
   /healthz:
     get:
@@ -24,7 +26,104 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /bot-control/session:
+    get:
+      operationId: getBotDashboardSession
+      tags: [bot-control]
+      summary: Check whether the dashboard session is authenticated
+      responses:
+        "200":
+          description: Session state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotDashboardSession"
+    post:
+      operationId: loginBotDashboard
+      tags: [bot-control]
+      summary: Sign in to the bot dashboard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotDashboardLoginInput"
+      responses:
+        "200":
+          description: Authenticated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotDashboardSession"
+        "401":
+          description: Password is incorrect
+        "503":
+          description: Dashboard password is not configured
+    delete:
+      operationId: logoutBotDashboard
+      tags: [bot-control]
+      summary: End the dashboard session
+      responses:
+        "200":
+          description: Session ended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotDashboardSession"
+  /bot-control/status:
+    get:
+      operationId: getManagedBotStatus
+      tags: [bot-control]
+      summary: Get the managed bot process and Discord connection status
+      security:
+        - botDashboardSession: []
+      responses:
+        "200":
+          description: Current bot status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedBotStatus"
+        "401":
+          description: Dashboard authentication required
+  /bot-control/start:
+    post:
+      operationId: startManagedBot
+      tags: [bot-control]
+      summary: Start the managed Discord bot
+      security:
+        - botDashboardSession: []
+      responses:
+        "200":
+          description: Current bot status after the start request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedBotStatus"
+        "401":
+          description: Dashboard authentication required
+  /bot-control/stop:
+    post:
+      operationId: stopManagedBot
+      tags: [bot-control]
+      summary: Stop the managed Discord bot
+      security:
+        - botDashboardSession: []
+      responses:
+        "200":
+          description: Current bot status after the stop request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedBotStatus"
+        "401":
+          description: Dashboard authentication required
 components:
+  securitySchemes:
+    botDashboardSession:
+      type: apiKey
+      in: cookie
+      name: bot_dashboard_session
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +132,46 @@ components:
           type: string
       required:
         - status
+    BotDashboardSession:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+      required: [authenticated]
+    BotDashboardLoginInput:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 1
+          writeOnly: true
+      required: [password]
+    ManagedBotStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: [stopped, starting, running, stopping, error]
+        gatewayConnected:
+          type: boolean
+        processId:
+          type: [integer, "null"]
+        startedAt:
+          type: [string, "null"]
+          format: date-time
+        uptimeSeconds:
+          type: integer
+          minimum: 0
+        lastExitCode:
+          type: [integer, "null"]
+        lastError:
+          type: [string, "null"]
+      required:
+        - state
+        - gatewayConnected
+        - processId
+        - startedAt
+        - uptimeSeconds
+        - lastExitCode
+        - lastError
 
