@@ -43,6 +43,7 @@ A small Discord bot that stays online and responds to `/ping` and `/hello`.
 - Lets members create, join, and leave team roles.
 - Lets the configured team manager delete team roles through `/team-delete`.
 - Lets the configured team manager add themselves or another member to an existing team through `/team-force`.
+- Provides administrator-only `/profiler status` and `/profiler toggle` commands for performance monitoring and optimization controls.
 
 ## User preferences
 
@@ -55,6 +56,7 @@ A small Discord bot that stays online and responds to `/ping` and `/hello`.
 - `/mcstatus` performs a fresh server check only when a user runs the command.
 - Only Discord user ID `1409996406097186866` can use `/team-delete`.
 - Only Discord user ID `1409996406097186866` can use `/team-force`.
+- Profiler samples run every 10 seconds after gateway readiness; stop the profiler during graceful shutdown.
 - Do not print or commit the `TOKEN` value.
 
 ## Pointers

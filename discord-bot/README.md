@@ -11,6 +11,8 @@ This bot logs in with the `TOKEN` secret and registers these slash commands:
 - `/team-leave name:<name>` — removes an existing team role from you
 - `/team-delete name:<name>` — deletes a team role; restricted to the team manager
 - `/team-force name:<name> member:<member>` — adds any server member to an existing team; restricted to the team manager
+- `/profiler status` — shows CPU, memory, event-loop, gateway, and cache metrics; administrator-only
+- `/profiler toggle mod_name:<cache-pruner|adaptive-cooldown>` — enables or disables a performance mod; administrator-only
 
 ## Discord setup
 
@@ -19,6 +21,8 @@ Invite the bot with the `bot` and `applications.commands` scopes. It needs permi
 To receive new-member events, enable **Server Members Intent** under **Privileged Gateway Intents** in the Developer Portal. When a new member joins, the bot sends the configured welcome message by DM. If that member has DMs disabled, the bot logs the failure and continues running.
 
 The `MC_SERVER_IP` shared environment variable stores the Minecraft server host or `host:port`. `/mcstatus` checks Java Edition first, then falls back to the Bedrock UDP status protocol only when the command is run. When the server is offline, the embed shows the booting-up message and connection instructions. Java servers can advertise a player sample; Bedrock status pings provide the count but not player names.
+
+The profiler samples asynchronously every 10 seconds after Discord becomes ready. Under heap pressure, the cache pruner removes old messages, cached guild members other than the bot and guild owner, and unused user entries; it also clears guild presence and voice-state caches while retaining guild and role caches used by commands. Under high CPU or event-loop lag, adaptive cooldowns temporarily apply a global per-command cooldown. Profiler toggle changes apply until the bot restarts.
 
 The bot token is stored in Replit Secrets as `TOKEN`; it is never hard-coded in the source.
 

@@ -2,6 +2,12 @@ const dgram = require("node:dgram");
 const net = require("node:net");
 const minecraftStatusPinger = require("minecraftstatuspinger");
 const {
+  MOD_NAMES,
+  PerformanceProfiler,
+  formatDuration,
+  formatMegabytes,
+} = require("./profiler");
+const {
   Client,
   EmbedBuilder,
   Events,
@@ -28,6 +34,7 @@ if (!token) {
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
 });
+const profiler = new PerformanceProfiler(client);
 
 function setBotOnlinePresence() {
   if (!client.user) {
@@ -404,9 +411,80 @@ function isValidTeamName(teamName) {
   );
 }
 
+function isProfilerAdmin(interaction) {
+  return (
+    interaction.user.id === teamManagerUserId ||
+    interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)
+  );
+}
+
+function buildProfilerStatusEmbed(status) {
+  const hasPressure = Object.values(status.pressure).some(Boolean);
+  const modValue = (name) =>
+    status.mods[name] ? "🟢 Enabled" : "⚪ Disabled";
+  const pressureValue = (name) =>
+    status.pressure[name] ? "⚠️ High" : "✅ Normal";
+
+  return new EmbedBuilder()
+    .setTitle("Bot Performance Profiler")
+    .setColor(hasPressure ? 0xfee75c : 0x57f287)
+    .addFields(
+      {
+        name: "CPU",
+        value: `${status.cpuPercent.toFixed(1)}% · ${pressureValue("cpu")}`,
+        inline: true,
+      },
+      {
+        name: "Heap used / total",
+        value: `${formatMegabytes(status.memory.heapUsed)} / ${formatMegabytes(status.memory.heapTotal)} (${(status.memory.heapUtilization * 100).toFixed(1)}%) · ${pressureValue("memory")}`,
+        inline: true,
+      },
+      {
+        name: "RSS",
+        value: formatMegabytes(status.memory.rss),
+        inline: true,
+      },
+      {
+        name: "Event loop lag",
+        value: `${formatDuration(status.eventLoop.maxMs)} max / ${formatDuration(status.eventLoop.meanMs)} avg · ${pressureValue("eventLoop")}`,
+        inline: true,
+      },
+      {
+        name: "Gateway latency",
+        value:
+          status.gatewayLatencyMs === null
+            ? "Unavailable"
+            : `${status.gatewayLatencyMs}ms`,
+        inline: true,
+      },
+      {
+        name: "Adaptive cooldown",
+        value: `${modValue(MOD_NAMES.ADAPTIVE_COOLDOWN)} · ${status.cooldownMultiplier}x`,
+        inline: true,
+      },
+      {
+        name: "Cache pruner",
+        value: modValue(MOD_NAMES.CACHE_PRUNER),
+        inline: true,
+      },
+      {
+        name: "Cache sizes",
+        value: `Guilds: ${status.cache.guilds}\nMembers: ${status.cache.guildMembers}\nUsers: ${status.cache.users}\nChannels: ${status.cache.channels}\nMessages: ${status.cache.messages}`,
+        inline: true,
+      },
+    )
+    .setFooter({
+      text: status.sampledAt
+        ? `Sampled ${status.sampledAt}`
+        : "Waiting for first sample",
+    });
+}
+
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Discord bot online as ${readyClient.user.tag}`);
   setBotOnlinePresence();
+  // Start the asynchronous profiler after the Discord gateway is ready.
+  profiler.start();
   const serverNames = readyClient.guilds.cache.map((guild) => guild.name);
   console.log(
     `Connected to ${serverNames.length ? serverNames.join(", ") : "no servers yet"}`,
@@ -495,10 +573,41 @@ client.once(Events.ClientReady, (readyClient) => {
           },
         ],
       },
+      {
+        name: "profiler",
+        description: "View and manage bot performance monitoring",
+        options: [
+          {
+            type: 1,
+            name: "status",
+            description: "Show the current performance dashboard",
+          },
+          {
+            type: 1,
+            name: "toggle",
+            description: "Enable or disable a performance optimization",
+            options: [
+              {
+                type: 3,
+                name: "mod_name",
+                description: "The optimization to toggle",
+                required: true,
+                choices: [
+                  { name: "Cache Pruner", value: MOD_NAMES.CACHE_PRUNER },
+                  {
+                    name: "Adaptive Cooldown",
+                    value: MOD_NAMES.ADAPTIVE_COOLDOWN,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
     ])
     .then(() => {
       console.log(
-        "Registered /ping, /hello, /mcstatus, /ip, /team-create, /team-join, /team-leave, /team-delete, and /team-force",
+        "Registered /ping, /hello, /mcstatus, /ip, /team-create, /team-join, /team-leave, /team-delete, /team-force, and /profiler",
       );
     })
     .catch((error) => {
@@ -512,12 +621,63 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return;
   }
 
+  if (interaction.commandName === "profiler") {
+    if (!interaction.inGuild()) {
+      await interaction.reply({
+        content: "🏠  Profiler commands can only be used inside a server.",
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (!isProfilerAdmin(interaction)) {
+      await interaction.reply({
+        content: "🚫  Only server administrators can use the profiler.",
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const subcommand = interaction.options.getSubcommand();
+    if (subcommand === "status") {
+      await interaction.reply({
+        embeds: [buildProfilerStatusEmbed(profiler.getStatus())],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (subcommand === "toggle") {
+      const result = profiler.toggleMod(
+        interaction.options.getString("mod_name", true),
+      );
+      await interaction.reply({
+        content: `✅  **${result.name}** is now ${result.enabled ? "enabled" : "disabled"}.`,
+        ephemeral: true,
+      });
+      return;
+    }
+  }
+
+  const cooldownRemaining = profiler.checkCommandCooldown(
+    interaction.commandName,
+  );
+  if (cooldownRemaining > 0) {
+    await interaction.reply({
+      content: `⏳  The bot is under load. Try again in ${(cooldownRemaining / 1_000).toFixed(1)} seconds.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
   if (interaction.commandName === "ping") {
     await interaction.reply(`Pong! ${client.ws.ping}ms`);
+    return;
   }
 
   if (interaction.commandName === "hello") {
     await interaction.reply(`Hello, ${interaction.user}!`);
+    return;
   }
 
   if (interaction.commandName === "ip") {
@@ -809,11 +969,13 @@ process.on("unhandledRejection", (error) => {
 });
 
 process.on("SIGTERM", () => {
+  profiler.stop();
   client.destroy();
   process.exit(0);
 });
 
 process.on("SIGINT", () => {
+  profiler.stop();
   client.destroy();
   process.exit(0);
 });
