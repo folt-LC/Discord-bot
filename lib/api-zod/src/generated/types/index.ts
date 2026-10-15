@@ -6,8 +6,24 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './botConnection';
 export * from './botDashboardLoginInput';
 export * from './botDashboardSession';
+export * from './botLogEntry';
+export * from './botLogEntryLevel';
+export * from './botLogEntrySource';
+export * from './botLogResponse';
+export * from './botUsageResponse';
+export * from './discordConnection';
 export * from './healthStatus';
 export * from './managedBotStatus';
 export * from './managedBotStatusState';
+export * from './minecraftConnection';
+export * from './minecraftConnectionStatusMode';
+export * from './profilerCache';
+export * from './profilerEventLoop';
+export * from './profilerMemory';
+export * from './profilerMods';
+export * from './profilerPressure';
+export * from './profilerSnapshot';
+export * from './profilerThresholds';

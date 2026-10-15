@@ -6,7 +6,17 @@ import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { Readable } from "node:stream";
 import type { Logger } from "pino";
+import {
+  GetBotConnectionResponse,
+  GetBotLogsResponse,
+  GetBotUsageResponse,
+} from "@workspace/api-zod";
 import { logger } from "./logger";
+
+const PROFILER_PREFIX = "MENDIVE_PROFILER_SNAPSHOT ";
+const MAX_LOG_ENTRIES = 250;
+const MAX_USAGE_SAMPLES = 180;
+const USAGE_RETENTION_MINUTES = 30;
 
 export type BotState =
   | "stopped"
@@ -23,6 +33,23 @@ export interface ManagedBotStatus {
   uptimeSeconds: number;
   lastExitCode: number | null;
   lastError: string | null;
+}
+
+type BotUsage = ReturnType<typeof GetBotUsageResponse.parse>;
+type ProfilerSample = NonNullable<BotUsage["current"]>;
+type BotLogEntry = ReturnType<typeof GetBotLogsResponse.parse>["entries"][number];
+type BotConnection = ReturnType<typeof GetBotConnectionResponse.parse>;
+
+function sanitizeLogMessage(value: string): string {
+  return value
+    .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "")
+    .replace(
+      /\b(token|password|secret|authorization)\s*[:=]\s*["']?[^,\s"']+/gi,
+      "$1=[redacted]",
+    )
+    .replace(/\b[\w-]{24}\.[\w-]{6}\.[\w-]{27}\b/g, "[redacted Discord token]")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+    .slice(0, 1_200);
 }
 
 function findBotEntry(): string | null {
@@ -43,6 +70,12 @@ class BotProcessManager {
   private lastError: string | null = null;
   private stopping = false;
   private actionQueue: Promise<unknown> = Promise.resolve();
+  private readonly logs: BotLogEntry[] = [];
+  private readonly usageHistory: ProfilerSample[] = [];
+  private currentUsage: ProfilerSample | null = null;
+  private readonly shardIds = new Set<number>();
+  private botUsername: string | null = null;
+  private gatewayConnectedAt: Date | null = null;
 
   constructor(logger: Logger) {
     this.logger = logger;
@@ -75,6 +108,43 @@ class BotProcessManager {
       lastExitCode: this.lastExitCode,
       lastError: this.lastError,
     };
+  }
+
+  getLogs(): { entries: BotLogEntry[] } {
+    return GetBotLogsResponse.parse({
+      entries: this.logs.slice(-MAX_LOG_ENTRIES),
+    });
+  }
+
+  getUsage(): BotUsage {
+    return GetBotUsageResponse.parse({
+      current: this.currentUsage,
+      history: this.usageHistory.slice(-MAX_USAGE_SAMPLES),
+      retentionMinutes: USAGE_RETENTION_MINUTES,
+    });
+  }
+
+  getConnectionInfo(): BotConnection {
+    return GetBotConnectionResponse.parse({
+      discord: {
+        gatewayConnected: this.gatewayConnected,
+        latencyMs: this.gatewayConnected
+          ? this.currentUsage?.gatewayLatencyMs ?? null
+          : null,
+        shards: [...this.shardIds].sort((left, right) => left - right),
+        botUsername: this.botUsername,
+        connectedAt: this.gatewayConnectedAt?.toISOString() ?? null,
+      },
+      minecraft: {
+        address: "willed-loading.gl.at.ply.gg:22376",
+        host: "willed-loading.gl.at.ply.gg",
+        port: 22376,
+        statusMode: "on-demand",
+        statusCommand: "/mcstatus",
+        connectionCommand: "/ip",
+        note: "Minecraft status is checked only when /mcstatus is run. The dashboard does not probe the game server.",
+      },
+    });
   }
 
   private enqueue<T>(action: () => Promise<T>): Promise<T> {
@@ -129,18 +199,26 @@ class BotProcessManager {
       let stdoutBuffer = "";
       child.stdout.on("data", (chunk: Buffer) => {
         stdoutBuffer += chunk.toString("utf8");
+        if (stdoutBuffer.length > 16_000) {
+          this.handleBotOutput("stdout", stdoutBuffer.slice(0, 16_000));
+          stdoutBuffer = "";
+          return;
+        }
         const lines = stdoutBuffer.split(/\r?\n/);
         stdoutBuffer = lines.pop() ?? "";
-        for (const line of lines) this.handleBotOutput(line);
+        for (const line of lines) this.handleBotOutput("stdout", line);
       });
+      let stderrBuffer = "";
       child.stderr.on("data", (chunk: Buffer) => {
-        const output = chunk.toString("utf8").trim();
-        if (output) {
-          this.logger.warn(
-            { pid: child.pid, output: output.slice(0, 1_000) },
-            "Managed Discord bot stderr",
-          );
+        stderrBuffer += chunk.toString("utf8");
+        if (stderrBuffer.length > 16_000) {
+          this.handleBotOutput("stderr", stderrBuffer.slice(0, 16_000));
+          stderrBuffer = "";
+          return;
         }
+        const lines = stderrBuffer.split(/\r?\n/);
+        stderrBuffer = lines.pop() ?? "";
+        for (const line of lines) this.handleBotOutput("stderr", line);
       });
 
       child.once("error", (error) => {
@@ -160,8 +238,15 @@ class BotProcessManager {
 
       child.once("exit", (code, signal) => {
         if (this.child !== child) return;
+        if (stdoutBuffer.trim()) {
+          this.handleBotOutput("stdout", stdoutBuffer);
+        }
+        if (stderrBuffer.trim()) {
+          this.handleBotOutput("stderr", stderrBuffer);
+        }
         this.child = null;
         this.gatewayConnected = false;
+        this.gatewayConnectedAt = null;
         this.lastExitCode = code;
         if (this.stopping || code === 0) {
           this.state = "stopped";
@@ -239,25 +324,99 @@ class BotProcessManager {
     return this.getStatus();
   }
 
-  private handleBotOutput(line: string): void {
-    if (!line) return;
+  private handleBotOutput(source: "stdout" | "stderr", line: string): void {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) return;
 
     if (
-      line.includes("Discord bot online as") ||
-      /Discord gateway shard \d+ is ready/.test(line)
+      source === "stdout" &&
+      trimmedLine.startsWith(PROFILER_PREFIX)
     ) {
-      this.gatewayConnected = true;
-      this.logger.info("Managed Discord bot connected to the gateway");
+      try {
+        const rawSample: unknown = JSON.parse(
+          trimmedLine.slice(PROFILER_PREFIX.length),
+        );
+        const validated = GetBotUsageResponse.parse({
+          current: rawSample,
+          history: [],
+          retentionMinutes: USAGE_RETENTION_MINUTES,
+        });
+        if (validated.current) {
+          this.currentUsage = validated.current;
+          this.usageHistory.push(validated.current);
+          if (this.usageHistory.length > MAX_USAGE_SAMPLES) {
+            this.usageHistory.splice(
+              0,
+              this.usageHistory.length - MAX_USAGE_SAMPLES,
+            );
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          { err: error },
+          "Ignored an invalid profiler sample from the bot",
+        );
+      }
       return;
     }
 
+    const readyMatch = trimmedLine.match(
+      /Discord gateway shard (\d+) is ready/,
+    );
+    if (readyMatch) {
+      this.shardIds.add(Number(readyMatch[1]));
+      this.setGatewayConnected(true);
+      this.logger.info("Managed Discord bot connected to the gateway");
+    }
+
+    const usernameMatch = trimmedLine.match(/Discord bot online as (.+)$/);
+    if (usernameMatch) {
+      this.botUsername = usernameMatch[1].trim();
+      this.setGatewayConnected(true);
+    }
+
     if (
-      /Discord gateway shard \d+ is reconnecting/.test(line) ||
-      /Discord gateway shard \d+ disconnected/.test(line)
+      /Discord gateway shard \d+ is reconnecting/.test(trimmedLine) ||
+      /Discord gateway shard \d+ disconnected/.test(trimmedLine)
     ) {
-      this.gatewayConnected = false;
+      this.setGatewayConnected(false);
       this.logger.warn("Managed Discord bot gateway connection interrupted");
     }
+
+    const message = sanitizeLogMessage(trimmedLine);
+    if (!message) return;
+    const lowerCaseMessage = message.toLowerCase();
+    const level =
+      /error|failed|failure/.test(lowerCaseMessage)
+        ? "error"
+        : source === "stderr" || /warn|reconnect/.test(lowerCaseMessage)
+          ? "warn"
+          : "info";
+    const entry = GetBotLogsResponse.parse({
+      entries: [
+        {
+          timestamp: new Date().toISOString(),
+          source,
+          level,
+          message,
+        },
+      ],
+    }).entries[0];
+    if (entry) {
+      this.logs.push(entry);
+      if (this.logs.length > MAX_LOG_ENTRIES) {
+        this.logs.splice(0, this.logs.length - MAX_LOG_ENTRIES);
+      }
+    }
+  }
+
+  private setGatewayConnected(connected: boolean): void {
+    if (connected && !this.gatewayConnected) {
+      this.gatewayConnectedAt = new Date();
+    } else if (!connected) {
+      this.gatewayConnectedAt = null;
+    }
+    this.gatewayConnected = connected;
   }
 }
 

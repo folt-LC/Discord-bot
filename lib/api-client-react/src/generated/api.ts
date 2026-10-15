@@ -20,8 +20,11 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BotConnection,
   BotDashboardLoginInput,
   BotDashboardSession,
+  BotLogResponse,
+  BotUsageResponse,
   HealthStatus,
   ManagedBotStatus
 } from './api.schemas';
@@ -594,4 +597,235 @@ export const useStopManagedBot = <TError = ErrorType<void>,
       > => {
       return useMutation(getStopManagedBotMutationOptions(options));
     }
+
+export const getGetBotLogsUrl = () => {
+
+
+
+
+  return `/api/bot-control/logs`
+}
+
+/**
+ * @summary Get recent redacted bot process logs
+ */
+export const getBotLogs = async ( options?: Parameters<typeof customFetch>[1]): Promise<BotLogResponse> => {
+
+  return customFetch<BotLogResponse>(getGetBotLogsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBotLogsQueryKey = () => {
+    return [
+    `/api/bot-control/logs`
+    ] as const;
+    }
+
+
+export const getGetBotLogsQueryOptions = <TData = Awaited<ReturnType<typeof getBotLogs>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBotLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBotLogsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBotLogs>>> = ({ signal }) => getBotLogs({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBotLogs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBotLogsQueryResult = NonNullable<Awaited<ReturnType<typeof getBotLogs>>>
+export type GetBotLogsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get recent redacted bot process logs
+ */
+
+export function useGetBotLogs<TData = Awaited<ReturnType<typeof getBotLogs>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBotLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBotLogsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetBotConnectionUrl = () => {
+
+
+
+
+  return `/api/bot-control/connection`
+}
+
+/**
+ * @summary Get Discord gateway and Minecraft connection information
+ */
+export const getBotConnection = async ( options?: Parameters<typeof customFetch>[1]): Promise<BotConnection> => {
+
+  return customFetch<BotConnection>(getGetBotConnectionUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBotConnectionQueryKey = () => {
+    return [
+    `/api/bot-control/connection`
+    ] as const;
+    }
+
+
+export const getGetBotConnectionQueryOptions = <TData = Awaited<ReturnType<typeof getBotConnection>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBotConnection>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBotConnectionQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBotConnection>>> = ({ signal }) => getBotConnection({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBotConnection>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBotConnectionQueryResult = NonNullable<Awaited<ReturnType<typeof getBotConnection>>>
+export type GetBotConnectionQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get Discord gateway and Minecraft connection information
+ */
+
+export function useGetBotConnection<TData = Awaited<ReturnType<typeof getBotConnection>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBotConnection>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBotConnectionQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetBotUsageUrl = () => {
+
+
+
+
+  return `/api/bot-control/usage`
+}
+
+/**
+ * @summary Get recent bot profiler samples
+ */
+export const getBotUsage = async ( options?: Parameters<typeof customFetch>[1]): Promise<BotUsageResponse> => {
+
+  return customFetch<BotUsageResponse>(getGetBotUsageUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBotUsageQueryKey = () => {
+    return [
+    `/api/bot-control/usage`
+    ] as const;
+    }
+
+
+export const getGetBotUsageQueryOptions = <TData = Awaited<ReturnType<typeof getBotUsage>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBotUsage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBotUsageQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBotUsage>>> = ({ signal }) => getBotUsage({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBotUsage>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBotUsageQueryResult = NonNullable<Awaited<ReturnType<typeof getBotUsage>>>
+export type GetBotUsageQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get recent bot profiler samples
+ */
+
+export function useGetBotUsage<TData = Awaited<ReturnType<typeof getBotUsage>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBotUsage>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBotUsageQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

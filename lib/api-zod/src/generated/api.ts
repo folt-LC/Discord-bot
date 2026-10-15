@@ -102,3 +102,186 @@ export const StopManagedBotResponse = zod.object({
 })
 
 
+/**
+ * @summary Get recent redacted bot process logs
+ */
+export const GetBotLogsResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "timestamp": zod.coerce.date(),
+  "source": zod.enum(['stdout', 'stderr']),
+  "level": zod.enum(['info', 'warn', 'error']),
+  "message": zod.string()
+}))
+})
+
+
+/**
+ * @summary Get Discord gateway and Minecraft connection information
+ */
+export const GetBotConnectionResponse = zod.object({
+  "discord": zod.object({
+  "gatewayConnected": zod.boolean(),
+  "latencyMs": zod.number().nullable(),
+  "shards": zod.array(zod.number().int()),
+  "botUsername": zod.string().nullable(),
+  "connectedAt": zod.coerce.date().nullable()
+}),
+  "minecraft": zod.object({
+  "address": zod.string(),
+  "host": zod.string(),
+  "port": zod.number().int(),
+  "statusMode": zod.enum(['on-demand']),
+  "statusCommand": zod.string(),
+  "connectionCommand": zod.string(),
+  "note": zod.string()
+})
+})
+
+
+/**
+ * @summary Get recent bot profiler samples
+ */
+export const getBotUsageResponseCurrentOneCpuPercentMin = 0;
+
+export const getBotUsageResponseCurrentOneMemoryHeapUsedMin = 0;
+
+export const getBotUsageResponseCurrentOneMemoryHeapTotalMin = 0;
+
+export const getBotUsageResponseCurrentOneMemoryRssMin = 0;
+
+export const getBotUsageResponseCurrentOneMemoryHeapUtilizationMin = 0;
+
+export const getBotUsageResponseCurrentOneEventLoopMeanMsMin = 0;
+
+export const getBotUsageResponseCurrentOneEventLoopMaxMsMin = 0;
+
+
+export const getBotUsageResponseCurrentOneCacheGuildsMin = 0;
+
+export const getBotUsageResponseCurrentOneCacheGuildMembersMin = 0;
+
+export const getBotUsageResponseCurrentOneCacheUsersMin = 0;
+
+export const getBotUsageResponseCurrentOneCacheChannelsMin = 0;
+
+export const getBotUsageResponseCurrentOneCacheMessagesMin = 0;
+
+export const getBotUsageResponseCurrentOneThresholdsCpuPercentMin = 0;
+
+export const getBotUsageResponseCurrentOneThresholdsHeapUtilizationMin = 0;
+
+export const getBotUsageResponseCurrentOneThresholdsEventLoopLagMsMin = 0;
+
+export const getBotUsageResponseHistoryItemCpuPercentMin = 0;
+
+export const getBotUsageResponseHistoryItemMemoryHeapUsedMin = 0;
+
+export const getBotUsageResponseHistoryItemMemoryHeapTotalMin = 0;
+
+export const getBotUsageResponseHistoryItemMemoryRssMin = 0;
+
+export const getBotUsageResponseHistoryItemMemoryHeapUtilizationMin = 0;
+
+export const getBotUsageResponseHistoryItemEventLoopMeanMsMin = 0;
+
+export const getBotUsageResponseHistoryItemEventLoopMaxMsMin = 0;
+
+
+export const getBotUsageResponseHistoryItemCacheGuildsMin = 0;
+
+export const getBotUsageResponseHistoryItemCacheGuildMembersMin = 0;
+
+export const getBotUsageResponseHistoryItemCacheUsersMin = 0;
+
+export const getBotUsageResponseHistoryItemCacheChannelsMin = 0;
+
+export const getBotUsageResponseHistoryItemCacheMessagesMin = 0;
+
+export const getBotUsageResponseHistoryItemThresholdsCpuPercentMin = 0;
+
+export const getBotUsageResponseHistoryItemThresholdsHeapUtilizationMin = 0;
+
+export const getBotUsageResponseHistoryItemThresholdsEventLoopLagMsMin = 0;
+
+
+
+
+export const GetBotUsageResponse = zod.object({
+  "current": zod.union([zod.object({
+  "sampledAt": zod.coerce.date(),
+  "cpuPercent": zod.number().min(getBotUsageResponseCurrentOneCpuPercentMin),
+  "memory": zod.object({
+  "heapUsed": zod.number().int().min(getBotUsageResponseCurrentOneMemoryHeapUsedMin),
+  "heapTotal": zod.number().int().min(getBotUsageResponseCurrentOneMemoryHeapTotalMin),
+  "rss": zod.number().int().min(getBotUsageResponseCurrentOneMemoryRssMin),
+  "heapUtilization": zod.number().min(getBotUsageResponseCurrentOneMemoryHeapUtilizationMin)
+}),
+  "eventLoop": zod.object({
+  "meanMs": zod.number().min(getBotUsageResponseCurrentOneEventLoopMeanMsMin),
+  "maxMs": zod.number().min(getBotUsageResponseCurrentOneEventLoopMaxMsMin)
+}),
+  "gatewayLatencyMs": zod.number().nullable(),
+  "pressure": zod.object({
+  "memory": zod.boolean(),
+  "cpu": zod.boolean(),
+  "eventLoop": zod.boolean()
+}),
+  "cooldownMultiplier": zod.number().min(1),
+  "cache": zod.object({
+  "guilds": zod.number().int().min(getBotUsageResponseCurrentOneCacheGuildsMin),
+  "guildMembers": zod.number().int().min(getBotUsageResponseCurrentOneCacheGuildMembersMin),
+  "users": zod.number().int().min(getBotUsageResponseCurrentOneCacheUsersMin),
+  "channels": zod.number().int().min(getBotUsageResponseCurrentOneCacheChannelsMin),
+  "messages": zod.number().int().min(getBotUsageResponseCurrentOneCacheMessagesMin)
+}),
+  "mods": zod.object({
+  "cachePruner": zod.boolean(),
+  "adaptiveCooldown": zod.boolean()
+}),
+  "thresholds": zod.object({
+  "cpuPercent": zod.number().min(getBotUsageResponseCurrentOneThresholdsCpuPercentMin),
+  "heapUtilization": zod.number().min(getBotUsageResponseCurrentOneThresholdsHeapUtilizationMin),
+  "eventLoopLagMs": zod.number().min(getBotUsageResponseCurrentOneThresholdsEventLoopLagMsMin)
+})
+}),zod.null()]),
+  "history": zod.array(zod.object({
+  "sampledAt": zod.coerce.date(),
+  "cpuPercent": zod.number().min(getBotUsageResponseHistoryItemCpuPercentMin),
+  "memory": zod.object({
+  "heapUsed": zod.number().int().min(getBotUsageResponseHistoryItemMemoryHeapUsedMin),
+  "heapTotal": zod.number().int().min(getBotUsageResponseHistoryItemMemoryHeapTotalMin),
+  "rss": zod.number().int().min(getBotUsageResponseHistoryItemMemoryRssMin),
+  "heapUtilization": zod.number().min(getBotUsageResponseHistoryItemMemoryHeapUtilizationMin)
+}),
+  "eventLoop": zod.object({
+  "meanMs": zod.number().min(getBotUsageResponseHistoryItemEventLoopMeanMsMin),
+  "maxMs": zod.number().min(getBotUsageResponseHistoryItemEventLoopMaxMsMin)
+}),
+  "gatewayLatencyMs": zod.number().nullable(),
+  "pressure": zod.object({
+  "memory": zod.boolean(),
+  "cpu": zod.boolean(),
+  "eventLoop": zod.boolean()
+}),
+  "cooldownMultiplier": zod.number().min(1),
+  "cache": zod.object({
+  "guilds": zod.number().int().min(getBotUsageResponseHistoryItemCacheGuildsMin),
+  "guildMembers": zod.number().int().min(getBotUsageResponseHistoryItemCacheGuildMembersMin),
+  "users": zod.number().int().min(getBotUsageResponseHistoryItemCacheUsersMin),
+  "channels": zod.number().int().min(getBotUsageResponseHistoryItemCacheChannelsMin),
+  "messages": zod.number().int().min(getBotUsageResponseHistoryItemCacheMessagesMin)
+}),
+  "mods": zod.object({
+  "cachePruner": zod.boolean(),
+  "adaptiveCooldown": zod.boolean()
+}),
+  "thresholds": zod.object({
+  "cpuPercent": zod.number().min(getBotUsageResponseHistoryItemThresholdsCpuPercentMin),
+  "heapUtilization": zod.number().min(getBotUsageResponseHistoryItemThresholdsHeapUtilizationMin),
+  "eventLoopLagMs": zod.number().min(getBotUsageResponseHistoryItemThresholdsEventLoopLagMsMin)
+})
+})),
+  "retentionMinutes": zod.number().int().min(1)
+})
+
+

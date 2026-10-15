@@ -33,6 +33,8 @@ class PerformanceProfiler {
   constructor(client, options = {}) {
     this.client = client;
     this.options = { ...DEFAULT_OPTIONS, ...options };
+    this.onSample =
+      typeof options.onSample === "function" ? options.onSample : null;
     this.eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
     this.interval = null;
     this.sampling = false;
@@ -206,6 +208,14 @@ class PerformanceProfiler {
       ) {
         await this.pruneCaches();
         this.snapshot.cache = this.getCacheCounts();
+      }
+
+      if (this.onSample) {
+        try {
+          this.onSample(this.getStatus());
+        } catch (error) {
+          console.error("Could not publish profiler sample:", error);
+        }
       }
     } finally {
       this.sampling = false;

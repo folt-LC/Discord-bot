@@ -34,7 +34,20 @@ if (!token) {
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
 });
-const profiler = new PerformanceProfiler(client);
+const profiler = new PerformanceProfiler(client, {
+  onSample: (status) => {
+    const dashboardSnapshot = {
+      ...status,
+      mods: {
+        cachePruner: status.mods[MOD_NAMES.CACHE_PRUNER],
+        adaptiveCooldown: status.mods[MOD_NAMES.ADAPTIVE_COOLDOWN],
+      },
+    };
+    process.stdout.write(
+      `MENDIVE_PROFILER_SNAPSHOT ${JSON.stringify(dashboardSnapshot)}\n`,
+    );
+  },
+});
 
 function setBotOnlinePresence() {
   if (!client.user) {

@@ -12,7 +12,10 @@ import {
 } from "express";
 import {
   GetBotDashboardSessionResponse,
+  GetBotConnectionResponse,
+  GetBotLogsResponse,
   GetManagedBotStatusResponse,
+  GetBotUsageResponse,
   LoginBotDashboardBody,
   LoginBotDashboardResponse,
   LogoutBotDashboardResponse,
@@ -281,6 +284,35 @@ router.post(
     const status = await botProcessManager.stop();
     response.setHeader("Cache-Control", "no-store");
     response.json(StopManagedBotResponse.parse(status));
+  },
+);
+
+router.get(
+  "/bot-control/logs",
+  requireDashboardSession,
+  (_request, response) => {
+    response.setHeader("Cache-Control", "no-store");
+    response.json(GetBotLogsResponse.parse(botProcessManager.getLogs()));
+  },
+);
+
+router.get(
+  "/bot-control/connection",
+  requireDashboardSession,
+  (_request, response) => {
+    response.setHeader("Cache-Control", "no-store");
+    response.json(
+      GetBotConnectionResponse.parse(botProcessManager.getConnectionInfo()),
+    );
+  },
+);
+
+router.get(
+  "/bot-control/usage",
+  requireDashboardSession,
+  (_request, response) => {
+    response.setHeader("Cache-Control", "no-store");
+    response.json(GetBotUsageResponse.parse(botProcessManager.getUsage()));
   },
 );
 

@@ -118,6 +118,54 @@ paths:
                 $ref: "#/components/schemas/ManagedBotStatus"
         "401":
           description: Dashboard authentication required
+  /bot-control/logs:
+    get:
+      operationId: getBotLogs
+      tags: [bot-control]
+      summary: Get recent redacted bot process logs
+      security:
+        - botDashboardSession: []
+      responses:
+        "200":
+          description: Recent log entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotLogResponse"
+        "401":
+          description: Dashboard authentication required
+  /bot-control/connection:
+    get:
+      operationId: getBotConnection
+      tags: [bot-control]
+      summary: Get Discord gateway and Minecraft connection information
+      security:
+        - botDashboardSession: []
+      responses:
+        "200":
+          description: Current connection information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotConnection"
+        "401":
+          description: Dashboard authentication required
+  /bot-control/usage:
+    get:
+      operationId: getBotUsage
+      tags: [bot-control]
+      summary: Get recent bot profiler samples
+      security:
+        - botDashboardSession: []
+      responses:
+        "200":
+          description: Current and recent profiler samples
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotUsageResponse"
+        "401":
+          description: Dashboard authentication required
 components:
   securitySchemes:
     botDashboardSession:
@@ -174,4 +222,206 @@ components:
         - uptimeSeconds
         - lastExitCode
         - lastError
+    BotLogEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        source:
+          type: string
+          enum: [stdout, stderr]
+        level:
+          type: string
+          enum: [info, warn, error]
+        message:
+          type: string
+      required: [timestamp, source, level, message]
+    BotLogResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/BotLogEntry"
+      required: [entries]
+    DiscordConnection:
+      type: object
+      properties:
+        gatewayConnected:
+          type: boolean
+        latencyMs:
+          type: [number, "null"]
+        shards:
+          type: array
+          items:
+            type: integer
+        botUsername:
+          type: [string, "null"]
+        connectedAt:
+          type: [string, "null"]
+          format: date-time
+      required: [gatewayConnected, latencyMs, shards, botUsername, connectedAt]
+    MinecraftConnection:
+      type: object
+      properties:
+        address:
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+        statusMode:
+          type: string
+          enum: [on-demand]
+        statusCommand:
+          type: string
+        connectionCommand:
+          type: string
+        note:
+          type: string
+      required:
+        - address
+        - host
+        - port
+        - statusMode
+        - statusCommand
+        - connectionCommand
+        - note
+    BotConnection:
+      type: object
+      properties:
+        discord:
+          $ref: "#/components/schemas/DiscordConnection"
+        minecraft:
+          $ref: "#/components/schemas/MinecraftConnection"
+      required: [discord, minecraft]
+    ProfilerMemory:
+      type: object
+      properties:
+        heapUsed:
+          type: integer
+          minimum: 0
+        heapTotal:
+          type: integer
+          minimum: 0
+        rss:
+          type: integer
+          minimum: 0
+        heapUtilization:
+          type: number
+          minimum: 0
+      required: [heapUsed, heapTotal, rss, heapUtilization]
+    ProfilerEventLoop:
+      type: object
+      properties:
+        meanMs:
+          type: number
+          minimum: 0
+        maxMs:
+          type: number
+          minimum: 0
+      required: [meanMs, maxMs]
+    ProfilerPressure:
+      type: object
+      properties:
+        memory:
+          type: boolean
+        cpu:
+          type: boolean
+        eventLoop:
+          type: boolean
+      required: [memory, cpu, eventLoop]
+    ProfilerCache:
+      type: object
+      properties:
+        guilds:
+          type: integer
+          minimum: 0
+        guildMembers:
+          type: integer
+          minimum: 0
+        users:
+          type: integer
+          minimum: 0
+        channels:
+          type: integer
+          minimum: 0
+        messages:
+          type: integer
+          minimum: 0
+      required: [guilds, guildMembers, users, channels, messages]
+    ProfilerMods:
+      type: object
+      properties:
+        cachePruner:
+          type: boolean
+        adaptiveCooldown:
+          type: boolean
+      required: [cachePruner, adaptiveCooldown]
+    ProfilerThresholds:
+      type: object
+      properties:
+        cpuPercent:
+          type: number
+          minimum: 0
+        heapUtilization:
+          type: number
+          minimum: 0
+        eventLoopLagMs:
+          type: number
+          minimum: 0
+      required: [cpuPercent, heapUtilization, eventLoopLagMs]
+    ProfilerSnapshot:
+      type: object
+      properties:
+        sampledAt:
+          type: string
+          format: date-time
+        cpuPercent:
+          type: number
+          minimum: 0
+        memory:
+          $ref: "#/components/schemas/ProfilerMemory"
+        eventLoop:
+          $ref: "#/components/schemas/ProfilerEventLoop"
+        gatewayLatencyMs:
+          type: [number, "null"]
+        pressure:
+          $ref: "#/components/schemas/ProfilerPressure"
+        cooldownMultiplier:
+          type: number
+          minimum: 1
+        cache:
+          $ref: "#/components/schemas/ProfilerCache"
+        mods:
+          $ref: "#/components/schemas/ProfilerMods"
+        thresholds:
+          $ref: "#/components/schemas/ProfilerThresholds"
+      required:
+        - sampledAt
+        - cpuPercent
+        - memory
+        - eventLoop
+        - gatewayLatencyMs
+        - pressure
+        - cooldownMultiplier
+        - cache
+        - mods
+        - thresholds
+    BotUsageResponse:
+      type: object
+      properties:
+        current:
+          oneOf:
+            - $ref: "#/components/schemas/ProfilerSnapshot"
+            - type: "null"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfilerSnapshot"
+        retentionMinutes:
+          type: integer
+          minimum: 1
+      required: [current, history, retentionMinutes]
 

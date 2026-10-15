@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
@@ -79,33 +79,33 @@
   --elevate-1: rgba(0, 0, 0, 0.03);
   --elevate-2: rgba(0, 0, 0, 0.08);
 
-  --background: 210 28% 96%;
+  --background: 42 27% 96%;
 
-  --foreground: 216 28% 17%;
+  --foreground: 158 22% 15%;
 
-  --border: 213 20% 87%;
+  --border: 147 13% 85%;
 
-  --card: 0 0% 100%;
+  --card: 42 35% 99%;
 
-  --card-foreground: 216 28% 17%;
+  --card-foreground: 158 22% 15%;
 
-  --card-border: 213 20% 87%;
+  --card-border: 147 13% 85%;
 
-  --sidebar: 216 31% 19%;
+  --sidebar: 158 22% 17%;
 
-  --sidebar-foreground: 210 22% 89%;
+  --sidebar-foreground: 42 25% 91%;
 
-  --sidebar-border: 216 24% 27%;
+  --sidebar-border: 158 16% 27%;
 
-  --sidebar-primary: 158 48% 53%;
+  --sidebar-primary: 43 78% 67%;
 
-  --sidebar-primary-foreground: 216 31% 14%;
+  --sidebar-primary-foreground: 158 22% 15%;
 
-  --sidebar-accent: 216 25% 25%;
+  --sidebar-accent: 158 17% 24%;
 
   --sidebar-accent-foreground: 0 0% 100%;
 
-  --sidebar-ring: 158 48% 53%;
+  --sidebar-ring: 43 78% 67%;
 
   --popover: 0 0% 100%;
 
@@ -113,19 +113,19 @@
 
   --popover-border: 213 20% 87%;
 
-  --primary: 158 48% 39%;
+  --primary: 158 33% 31%;
 
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 210 23% 92%;
+  --secondary: 145 15% 91%;
 
   --secondary-foreground: 216 28% 22%;
 
-  --muted: 210 23% 92%;
+  --muted: 145 15% 91%;
 
-  --muted-foreground: 215 13% 48%;
+  --muted-foreground: 157 9% 44%;
 
-  --accent: 158 45% 94%;
+  --accent: 43 71% 91%;
 
   --accent-foreground: 158 47% 27%;
 
@@ -141,7 +141,7 @@
   --chart-4: 270 25% 59%;
   --chart-5: 4 67% 53%;
 
-  --app-font-sans: 'Manrope', sans-serif;
+  --app-font-sans: 'Space Grotesk', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'DM Mono', monospace;
   --radius: 0.5rem; /* 8px */
@@ -228,33 +228,33 @@
   --elevate-1: rgba(255, 255, 255, 0.04);
   --elevate-2: rgba(255, 255, 255, 0.09);
 
-  --background: 216 31% 12%;
+  --background: 158 22% 11%;
 
-  --foreground: 210 22% 92%;
+  --foreground: 42 25% 91%;
 
-  --border: 216 24% 27%;
+  --border: 158 16% 27%;
 
-  --card: 216 28% 16%;
+  --card: 158 20% 15%;
 
-  --card-foreground: 210 22% 92%;
+  --card-foreground: 42 25% 91%;
 
-  --card-border: 216 24% 27%;
+  --card-border: 158 16% 27%;
 
-  --sidebar: 216 31% 10%;
+  --sidebar: 158 22% 9%;
 
-  --sidebar-foreground: 210 22% 89%;
+  --sidebar-foreground: 42 25% 91%;
 
-  --sidebar-border: 216 24% 22%;
+  --sidebar-border: 158 16% 22%;
 
-  --sidebar-primary: 158 48% 53%;
+  --sidebar-primary: 43 78% 67%;
 
-  --sidebar-primary-foreground: 216 31% 14%;
+  --sidebar-primary-foreground: 158 22% 15%;
 
-  --sidebar-accent: 216 25% 19%;
+  --sidebar-accent: 158 17% 19%;
 
   --sidebar-accent-foreground: 0 0% 100%;
 
-  --sidebar-ring: 158 48% 53%;
+  --sidebar-ring: 43 78% 67%;
 
   --popover: 216 28% 16%;
 
@@ -262,19 +262,19 @@
 
   --popover-border: 216 24% 27%;
 
-  --primary: 158 48% 53%;
+  --primary: 43 78% 67%;
 
   --primary-foreground: 216 31% 12%;
 
-  --secondary: 216 24% 22%;
+  --secondary: 158 16% 22%;
 
   --secondary-foreground: 210 22% 92%;
 
-  --muted: 216 24% 22%;
+  --muted: 158 16% 22%;
 
-  --muted-foreground: 215 12% 65%;
+  --muted-foreground: 155 9% 66%;
 
-  --accent: 158 38% 21%;
+  --accent: 43 32% 23%;
 
   --accent-foreground: 158 53% 78%;
 
@@ -448,9 +448,8 @@ button, input { font: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
 
 .ops-grid {
-  background-image: linear-gradient(hsl(216 28% 17% / 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(216 28% 17% / 0.025) 1px, transparent 1px);
-  background-size: 28px 28px;
+  background-image: radial-gradient(hsl(158 22% 15% / .045) .7px, transparent .7px);
+  background-size: 13px 13px;
 }
 
 .enter {
@@ -471,3 +470,7 @@ button { -webkit-tap-highlight-color: transparent; }
 
 ::selection { background: hsl(158 48% 39% / .2); }
 :focus-visible { outline: 3px solid hsl(158 48% 39% / .35); outline-offset: 2px; }
+
+.font-display { font-family: 'Space Grotesk', sans-serif; }
+.metric-line { background: linear-gradient(90deg, hsl(158 33% 31%), hsl(43 72% 59%)); }
+.log-scroll { scrollbar-color: hsl(157 11% 42%) transparent; scrollbar-width: thin; }

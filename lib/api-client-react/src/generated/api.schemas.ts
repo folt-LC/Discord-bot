@@ -44,3 +44,138 @@ export interface ManagedBotStatus {
   lastError: string | null;
 }
 
+export type BotLogEntrySource = typeof BotLogEntrySource[keyof typeof BotLogEntrySource];
+
+
+export const BotLogEntrySource = {
+  stdout: 'stdout',
+  stderr: 'stderr',
+} as const;
+
+export type BotLogEntryLevel = typeof BotLogEntryLevel[keyof typeof BotLogEntryLevel];
+
+
+export const BotLogEntryLevel = {
+  info: 'info',
+  warn: 'warn',
+  error: 'error',
+} as const;
+
+export interface BotLogEntry {
+  timestamp: string;
+  source: BotLogEntrySource;
+  level: BotLogEntryLevel;
+  message: string;
+}
+
+export interface BotLogResponse {
+  entries: BotLogEntry[];
+}
+
+export interface DiscordConnection {
+  gatewayConnected: boolean;
+  /** @nullable */
+  latencyMs: number | null;
+  shards: number[];
+  /** @nullable */
+  botUsername: string | null;
+  /** @nullable */
+  connectedAt: string | null;
+}
+
+export type MinecraftConnectionStatusMode = typeof MinecraftConnectionStatusMode[keyof typeof MinecraftConnectionStatusMode];
+
+
+export const MinecraftConnectionStatusMode = {
+  'on-demand': 'on-demand',
+} as const;
+
+export interface MinecraftConnection {
+  address: string;
+  host: string;
+  port: number;
+  statusMode: MinecraftConnectionStatusMode;
+  statusCommand: string;
+  connectionCommand: string;
+  note: string;
+}
+
+export interface BotConnection {
+  discord: DiscordConnection;
+  minecraft: MinecraftConnection;
+}
+
+export interface ProfilerMemory {
+  /** @minimum 0 */
+  heapUsed: number;
+  /** @minimum 0 */
+  heapTotal: number;
+  /** @minimum 0 */
+  rss: number;
+  /** @minimum 0 */
+  heapUtilization: number;
+}
+
+export interface ProfilerEventLoop {
+  /** @minimum 0 */
+  meanMs: number;
+  /** @minimum 0 */
+  maxMs: number;
+}
+
+export interface ProfilerPressure {
+  memory: boolean;
+  cpu: boolean;
+  eventLoop: boolean;
+}
+
+export interface ProfilerCache {
+  /** @minimum 0 */
+  guilds: number;
+  /** @minimum 0 */
+  guildMembers: number;
+  /** @minimum 0 */
+  users: number;
+  /** @minimum 0 */
+  channels: number;
+  /** @minimum 0 */
+  messages: number;
+}
+
+export interface ProfilerMods {
+  cachePruner: boolean;
+  adaptiveCooldown: boolean;
+}
+
+export interface ProfilerThresholds {
+  /** @minimum 0 */
+  cpuPercent: number;
+  /** @minimum 0 */
+  heapUtilization: number;
+  /** @minimum 0 */
+  eventLoopLagMs: number;
+}
+
+export interface ProfilerSnapshot {
+  sampledAt: string;
+  /** @minimum 0 */
+  cpuPercent: number;
+  memory: ProfilerMemory;
+  eventLoop: ProfilerEventLoop;
+  /** @nullable */
+  gatewayLatencyMs: number | null;
+  pressure: ProfilerPressure;
+  /** @minimum 1 */
+  cooldownMultiplier: number;
+  cache: ProfilerCache;
+  mods: ProfilerMods;
+  thresholds: ProfilerThresholds;
+}
+
+export interface BotUsageResponse {
+  current: ProfilerSnapshot | null;
+  history: ProfilerSnapshot[];
+  /** @minimum 1 */
+  retentionMinutes: number;
+}
+
