@@ -91,13 +91,6 @@ class BotProcessManager {
       return this.getStatus();
     }
 
-    if (!process.env.TOKEN) {
-      this.state = "error";
-      this.lastError = "The bot TOKEN secret is not configured.";
-      this.logger.error("Cannot start the managed bot: TOKEN is missing");
-      return this.getStatus();
-    }
-
     const entry = findBotEntry();
     if (!entry) {
       this.state = "error";
@@ -155,6 +148,10 @@ class BotProcessManager {
         this.state = "error";
         this.gatewayConnected = false;
         this.lastError = error.message;
+        if (child.pid === undefined) {
+          this.child = null;
+          this.startedAt = null;
+        }
         this.logger.error(
           { err: error, pid: child.pid },
           "Managed Discord bot process error",

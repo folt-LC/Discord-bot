@@ -131,6 +131,7 @@ function LoginPage() {
             <p className="mt-2 text-sm leading-6 text-muted-foreground">Use your dashboard password to manage the Mendive Discord bot.</p>
           </div>
           <form onSubmit={submit} className="space-y-5">
+            <input type="hidden" name="username" autoComplete="username" value="dashboard" readOnly />
             <label className="block">
               <span className="mb-2 block text-xs font-bold text-foreground">Dashboard password</span>
               <span className="relative block">
