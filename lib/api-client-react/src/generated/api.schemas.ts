@@ -110,6 +110,11 @@ export interface ProfilerMemory {
   heapUsed: number;
   /** @minimum 0 */
   heapTotal: number;
+  /**
+     * Maximum V8 heap size in bytes
+     * @minimum 0
+     */
+  heapLimit: number;
   /** @minimum 0 */
   rss: number;
   /** @minimum 0 */

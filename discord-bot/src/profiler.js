@@ -1,5 +1,6 @@
 const { availableParallelism } = require("node:os");
 const { monitorEventLoopDelay, performance } = require("node:perf_hooks");
+const { getHeapStatistics } = require("node:v8");
 
 const MOD_NAMES = Object.freeze({
   CACHE_PRUNER: "cache-pruner",
@@ -53,6 +54,7 @@ class PerformanceProfiler {
       memory: {
         heapUsed: 0,
         heapTotal: 0,
+        heapLimit: 0,
         rss: 0,
         heapUtilization: 0,
       },
@@ -153,6 +155,7 @@ class PerformanceProfiler {
         ((cpuDelta.user + cpuDelta.system) / elapsedMicros / cpuCoreCount) *
         100;
       const memory = process.memoryUsage();
+      const heapLimit = getHeapStatistics().heap_size_limit;
       const eventLoop = {
         meanMs: Number.isFinite(this.eventLoopDelay.mean)
           ? this.eventLoopDelay.mean / 1e6
@@ -168,8 +171,8 @@ class PerformanceProfiler {
 
       this.pressure = {
         memory:
-          memory.heapTotal > 0 &&
-          memory.heapUsed / memory.heapTotal >= this.options.memoryThreshold,
+          heapLimit > 0 &&
+          memory.heapUsed / heapLimit >= this.options.memoryThreshold,
         cpu: cpuPercent >= this.options.cpuThreshold,
         eventLoop: eventLoop.maxMs >= this.options.eventLoopLagThresholdMs,
       };
@@ -188,9 +191,10 @@ class PerformanceProfiler {
         memory: {
           heapUsed: memory.heapUsed,
           heapTotal: memory.heapTotal,
+          heapLimit,
           rss: memory.rss,
           heapUtilization:
-            memory.heapTotal > 0 ? memory.heapUsed / memory.heapTotal : 0,
+            heapLimit > 0 ? memory.heapUsed / heapLimit : 0,
         },
         eventLoop,
         gatewayLatencyMs: Number.isFinite(this.client.ws?.ping)

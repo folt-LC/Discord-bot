@@ -147,6 +147,8 @@ export const getBotUsageResponseCurrentOneMemoryHeapUsedMin = 0;
 
 export const getBotUsageResponseCurrentOneMemoryHeapTotalMin = 0;
 
+export const getBotUsageResponseCurrentOneMemoryHeapLimitMin = 0;
+
 export const getBotUsageResponseCurrentOneMemoryRssMin = 0;
 
 export const getBotUsageResponseCurrentOneMemoryHeapUtilizationMin = 0;
@@ -177,6 +179,8 @@ export const getBotUsageResponseHistoryItemCpuPercentMin = 0;
 export const getBotUsageResponseHistoryItemMemoryHeapUsedMin = 0;
 
 export const getBotUsageResponseHistoryItemMemoryHeapTotalMin = 0;
+
+export const getBotUsageResponseHistoryItemMemoryHeapLimitMin = 0;
 
 export const getBotUsageResponseHistoryItemMemoryRssMin = 0;
 
@@ -213,6 +217,7 @@ export const GetBotUsageResponse = zod.object({
   "memory": zod.object({
   "heapUsed": zod.number().int().min(getBotUsageResponseCurrentOneMemoryHeapUsedMin),
   "heapTotal": zod.number().int().min(getBotUsageResponseCurrentOneMemoryHeapTotalMin),
+  "heapLimit": zod.number().int().min(getBotUsageResponseCurrentOneMemoryHeapLimitMin).describe('Maximum V8 heap size in bytes'),
   "rss": zod.number().int().min(getBotUsageResponseCurrentOneMemoryRssMin),
   "heapUtilization": zod.number().min(getBotUsageResponseCurrentOneMemoryHeapUtilizationMin)
 }),
@@ -250,6 +255,7 @@ export const GetBotUsageResponse = zod.object({
   "memory": zod.object({
   "heapUsed": zod.number().int().min(getBotUsageResponseHistoryItemMemoryHeapUsedMin),
   "heapTotal": zod.number().int().min(getBotUsageResponseHistoryItemMemoryHeapTotalMin),
+  "heapLimit": zod.number().int().min(getBotUsageResponseHistoryItemMemoryHeapLimitMin).describe('Maximum V8 heap size in bytes'),
   "rss": zod.number().int().min(getBotUsageResponseHistoryItemMemoryRssMin),
   "heapUtilization": zod.number().min(getBotUsageResponseHistoryItemMemoryHeapUtilizationMin)
 }),

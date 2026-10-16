@@ -450,8 +450,13 @@ function buildProfilerStatusEmbed(status) {
         inline: true,
       },
       {
-        name: "Heap used / total",
-        value: `${formatMegabytes(status.memory.heapUsed)} / ${formatMegabytes(status.memory.heapTotal)} (${(status.memory.heapUtilization * 100).toFixed(1)}%) · ${pressureValue("memory")}`,
+        name: "Heap in use / V8 limit",
+        value: `${formatMegabytes(status.memory.heapUsed)} / ${formatMegabytes(status.memory.heapLimit)} (${(status.memory.heapUtilization * 100).toFixed(1)}%) · ${pressureValue("memory")}`,
+        inline: true,
+      },
+      {
+        name: "Current heap capacity",
+        value: formatMegabytes(status.memory.heapTotal),
         inline: true,
       },
       {
