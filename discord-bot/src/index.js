@@ -38,6 +38,8 @@ const profiler = new PerformanceProfiler(client, {
   onSample: (status) => {
     const dashboardSnapshot = {
       ...status,
+      gatewayLatencyMs:
+        status.gatewayLatencyMs >= 0 ? status.gatewayLatencyMs : null,
       mods: {
         cachePruner: status.mods[MOD_NAMES.CACHE_PRUNER],
         adaptiveCooldown: status.mods[MOD_NAMES.ADAPTIVE_COOLDOWN],

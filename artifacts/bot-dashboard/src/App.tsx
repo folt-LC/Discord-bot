@@ -2,8 +2,8 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import {
   Activity, AlertTriangle, ArrowDownToLine, ArrowUpRight, Bot, Check, ChevronRight, CircleAlert,
-  Clock3, Code2, Cpu, Fingerprint, Gauge, HardDrive, KeyRound, LoaderCircle, LockKeyhole,
-  LogOut, MemoryStick, RefreshCw, Router, Server, ShieldCheck, Signal, SignalZero, Terminal,
+  Clock3, Code2, Copy, Cpu, Fingerprint, Gauge, HardDrive, KeyRound, LoaderCircle, LockKeyhole,
+  LogOut, MemoryStick, RefreshCw, Router as RouterIcon, Server, ShieldCheck, Signal, SignalZero, Terminal,
   Users, X,
 } from 'lucide-react';
 import {
@@ -19,7 +19,15 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, useLocation, Router as WouterRouter, Link } from 'wouter';
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 0 } } });
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function errorText(error: unknown, fallback: string) {
   if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message;
@@ -94,7 +102,7 @@ type PageKey = 'status' | 'logs' | 'connection' | 'usage';
 const navItems: { label: string; path: string; key: PageKey; icon: ReactNode }[] = [
   { label: 'Status', path: '/', key: 'status', icon: <Activity size={16} /> },
   { label: 'Logs', path: '/logs', key: 'logs', icon: <Terminal size={16} /> },
-  { label: 'Connection', path: '/connection', key: 'connection', icon: <Router size={16} /> },
+  { label: 'Connection', path: '/connection', key: 'connection', icon: <RouterIcon size={16} /> },
   { label: 'Usage', path: '/usage', key: 'usage', icon: <Gauge size={16} /> },
 ];
 function Shell({ children, page, onRefresh, refreshing }: { children: ReactNode; page: PageKey; onRefresh: () => void; refreshing: boolean }) {
@@ -142,7 +150,6 @@ function EmptyState({ title, detail }: { title: string; detail: string }) {
   return <div className="rounded-xl border border-dashed border-[#cbd7cf] bg-[#fbfcf9] px-6 py-12 text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[#edf1e9] text-muted-foreground"><Activity size={21} /></div><h2 className="mt-4 text-base font-bold">{title}</h2><p className="mx-auto mt-1.5 max-w-sm text-sm leading-6 text-muted-foreground">{detail}</p></div>;
 }
 function PageFrame({ page, refresh, isFetching, children }: { page: PageKey; refresh: () => void; isFetching: boolean; children: ReactNode }) {
-  const queryClient = useQueryClient();
   const session = useGetBotDashboardSession();
   const [, setLocation] = useLocation();
   useEffect(() => { if (!session.isLoading && !session.data?.authenticated) setLocation('/login'); }, [session.data?.authenticated, session.isLoading, setLocation]);
@@ -158,7 +165,7 @@ function StatusPage() {
   const bot = status.data as ManagedBotStatus | undefined;
   const pending = startBot.isPending || stopBot.isPending;
   const canStart = bot?.state === 'stopped' || bot?.state === 'error';
-  const canStop = bot?.state === 'running';
+  const canStop = bot?.state === 'running' || bot?.state === 'starting';
   function updateStatus(result: ManagedBotStatus) {
     queryClient.setQueryData(getGetManagedBotStatusQueryKey(), result);
     void queryClient.invalidateQueries({ queryKey: getGetManagedBotStatusQueryKey() });
@@ -192,14 +199,16 @@ function StatusPage() {
 function LogsPage() {
   const logs = useGetBotLogs({ query: { queryKey: getGetBotLogsQueryKey() } });
   const entries = logs.data?.entries ?? [];
+  const [levelFilter, setLevelFilter] = useState<'all' | 'info' | 'warn' | 'error'>('all');
+  const visibleEntries = levelFilter === 'all' ? entries : entries.filter((entry) => entry.level === levelFilter);
   return <PageFrame page="logs" refresh={() => { void logs.refetch(); }} isFetching={logs.isFetching}>
     <Heading eyebrow="Process output" title="Recent logs" detail="Sanitized stdout and stderr from the managed bot process." action={<button onClick={() => { void logs.refetch(); }} disabled={logs.isFetching} className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-3.5 text-xs font-bold hover:border-primary/40 disabled:opacity-50"><RefreshCw size={14} className={logs.isFetching ? 'animate-spin' : ''} />Refresh logs</button>} />
     {logs.isError && <ErrorNotice message={errorText(logs.error, 'Recent process logs could not be loaded.')} retry={() => { void logs.refetch(); }} />}
     {logs.isLoading && <div className="mt-8 space-y-2 rounded-xl border border-border bg-card p-5">{[1,2,3,4,5,6].map((n) => <div key={n} className="h-7 animate-pulse rounded bg-secondary/70" />)}</div>}
     {!logs.isLoading && !logs.isError && !entries.length && <div className="mt-8"><EmptyState title="No recent entries" detail="There are no process log lines available yet. New output will appear here when the bot runs." /></div>}
     {!logs.isLoading && entries.length > 0 && <section className="enter mt-8 overflow-hidden rounded-xl border border-[#32453c] bg-[#1f2d28] text-[#dae5dc]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4"><div className="flex items-center gap-2"><Terminal size={15} className="text-[#d8c16e]" /><span className="text-xs font-bold text-white">Process stream</span><span className="rounded-full bg-white/10 px-2 py-0.5 font-mono text-[10px]">{entries.length} lines</span></div><span className="font-mono text-[10px] uppercase tracking-[.12em] text-[#9fb0a4]">Redacted output</span></div>
-      <div className="log-scroll max-h-[620px] overflow-auto p-2 sm:p-4">{entries.map((entry, index) => <div key={`${entry.timestamp}-${index}`} data-testid={`log-entry-${index}`} className="grid gap-2 border-b border-white/[.055] px-3 py-3 text-xs last:border-0 sm:grid-cols-[145px_62px_62px_minmax(0,1fr)] sm:items-start"><time className="font-mono text-[10px] leading-5 text-[#9fb0a4]">{new Intl.DateTimeFormat(undefined, { timeStyle: 'medium' }).format(new Date(entry.timestamp))}</time><span className={`w-fit rounded px-1.5 py-0.5 font-mono text-[9px] uppercase ${entry.level === 'error' ? 'bg-rose-400/15 text-rose-300' : entry.level === 'warn' ? 'bg-amber-300/15 text-amber-200' : 'bg-white/[.08] text-[#c2d0c5]'}`}>{entry.level}</span><span className="font-mono text-[10px] uppercase text-[#9fb0a4]">{entry.source}</span><p className="break-words font-mono text-[11px] leading-5 text-[#e0e8df]">{entry.message}</p></div>)}</div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4"><div className="flex items-center gap-2"><Terminal size={15} className="text-[#d8c16e]" /><span className="text-xs font-bold text-white">Process stream</span><span className="rounded-full bg-white/10 px-2 py-0.5 font-mono text-[10px]">{visibleEntries.length}{levelFilter === 'all' ? '' : ` / ${entries.length}`} lines</span></div><div className="flex items-center gap-3"><label className="flex items-center gap-2 text-[10px] text-[#b6c6bb]"><span>Level</span><select data-testid="select-log-level" value={levelFilter} onChange={(event) => setLevelFilter(event.target.value as typeof levelFilter)} className="rounded-md border border-white/15 bg-[#2b3b34] px-2 py-1.5 text-[10px] text-white outline-none focus:ring-2 focus:ring-[#d8c16e]/50"><option value="all">All levels</option><option value="info">Info</option><option value="warn">Warning</option><option value="error">Error</option></select></label><span className="hidden font-mono text-[10px] uppercase tracking-[.12em] text-[#9fb0a4] sm:inline">Redacted output</span></div></div>
+      {visibleEntries.length ? <div className="log-scroll max-h-[620px] overflow-auto p-2 sm:p-4">{visibleEntries.map((entry, index) => <div key={`${entry.timestamp}-${index}`} data-testid={`log-entry-${index}`} className="grid gap-2 border-b border-white/[.055] px-3 py-3 text-xs last:border-0 sm:grid-cols-[145px_62px_62px_minmax(0,1fr)] sm:items-start"><time className="font-mono text-[10px] leading-5 text-[#9fb0a4]">{new Intl.DateTimeFormat(undefined, { timeStyle: 'medium' }).format(new Date(entry.timestamp))}</time><span className={`w-fit rounded px-1.5 py-0.5 font-mono text-[9px] uppercase ${entry.level === 'error' ? 'bg-rose-400/15 text-rose-300' : entry.level === 'warn' ? 'bg-amber-300/15 text-amber-200' : 'bg-white/[.08] text-[#c2d0c5]'}`}>{entry.level}</span><span className="font-mono text-[10px] uppercase text-[#9fb0a4]">{entry.source}</span><p className="break-words font-mono text-[11px] leading-5 text-[#e0e8df]">{entry.message}</p></div>)}</div> : <p className="px-5 py-8 text-center text-xs text-[#b6c6bb]">No log entries match this level.</p>}
     </section>}
     <p className="mt-4 flex items-center gap-2 text-[11px] text-muted-foreground"><ShieldCheck size={13} />Log output is sanitized by the control service before it reaches this console.</p>
   </PageFrame>;
@@ -207,7 +216,18 @@ function LogsPage() {
 
 function ConnectionPage() {
   const connection = useGetBotConnection({ query: { queryKey: getGetBotConnectionQueryKey() } });
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const data = connection.data;
+  async function copyAddress() {
+    if (!data) return;
+    try {
+      await navigator.clipboard.writeText(data.minecraft.address);
+      setCopyState('copied');
+    } catch {
+      setCopyState('error');
+    }
+    window.setTimeout(() => setCopyState('idle'), 1600);
+  }
   return <PageFrame page="connection" refresh={() => { void connection.refetch(); }} isFetching={connection.isFetching}>
     <Heading eyebrow="Network details" title="Connection" detail="Discord gateway session and Minecraft server command details." action={<span className="rounded-full border border-[#e5d9a9] bg-[#f7f1d9] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[.1em] text-[#705f2a]">Minecraft · on-demand</span>} />
     {connection.isError && <ErrorNotice message={errorText(connection.error, 'Connection details could not be loaded.')} retry={() => { void connection.refetch(); }} />}
@@ -221,7 +241,7 @@ function ConnectionPage() {
       <article className="relative overflow-hidden rounded-xl border border-[#34483e] bg-[#22332d] p-5 text-[#e3ebe5] sm:p-6">
         <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full border border-white/[.08]" /><div className="absolute -right-8 -top-8 h-40 w-40 rounded-full border border-white/[.08]" />
         <div className="relative"><div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.15em] text-[#cbbd78]"><Server size={14} />Minecraft endpoint</div><h2 className="mt-3 font-display text-2xl font-bold">Server details</h2><p className="mt-1 text-xs leading-5 text-[#b6c7bc]">Connection information only. No automatic probing.</p>
-          <div className="mt-6 rounded-lg border border-white/10 bg-black/10 p-4"><p className="font-mono text-[9px] uppercase tracking-[.14em] text-[#9eb0a3]">Address</p><p className="mt-2 break-all font-mono text-sm font-medium text-white">{data.minecraft.address}</p><p className="mt-1 text-[11px] text-[#aebeb2]">{data.minecraft.host}:{data.minecraft.port}</p></div>
+           <div className="mt-6 rounded-lg border border-white/10 bg-black/10 p-4"><div className="flex items-center justify-between gap-3"><p className="font-mono text-[9px] uppercase tracking-[.14em] text-[#9eb0a3]">Address</p><button data-testid="button-copy-address" onClick={() => { void copyAddress(); }} className="flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1.5 text-[10px] font-semibold text-[#dfe8df] transition hover:bg-white/[.08]">{copyState === 'copied' ? <Check size={12} /> : <Copy size={12} />}{copyState === 'copied' ? 'Copied' : copyState === 'error' ? 'Copy failed' : 'Copy address'}</button></div><p className="mt-2 break-all font-mono text-sm font-medium text-white">{data.minecraft.address}</p><p className="mt-1 text-[11px] text-[#aebeb2]">{data.minecraft.host}:{data.minecraft.port}</p></div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2"><CommandTile label="Status command" value={data.minecraft.statusCommand} /><CommandTile label="Connection command" value={data.minecraft.connectionCommand} /></div>
           <div className="mt-4 flex items-start gap-2 rounded-lg bg-[#e1c875]/10 p-3 text-xs leading-5 text-[#e4dba9]"><AlertTriangle size={14} className="mt-0.5 shrink-0" /><span>{data.minecraft.note || `Status mode: ${data.minecraft.statusMode}. Run ${data.minecraft.statusCommand} in Discord to request a live server check.`}</span></div>
           <p className="mt-4 font-mono text-[9px] uppercase tracking-[.13em] text-[#9eb0a3]">Status mode · {data.minecraft.statusMode}</p>
@@ -239,12 +259,12 @@ function CommandTile({ label, value }: { label: string; value: string }) {
 }
 
 function UsagePage() {
-  const usage = useGetBotUsage({ query: { queryKey: getGetBotUsageQueryKey(), refetchInterval: 10000 } });
+  const usage = useGetBotUsage({ query: { queryKey: getGetBotUsageQueryKey() } });
   const result = usage.data;
   const current = result?.current ?? null;
   const history = result?.history ?? [];
   return <PageFrame page="usage" refresh={() => { void usage.refetch(); }} isFetching={usage.isFetching}>
-    <Heading eyebrow="Runtime profiler" title="Usage & performance" detail="Profiler samples every 10 seconds; the API retains 30 minutes of readings." action={<span className="rounded-full border border-border bg-card px-3 py-1.5 font-mono text-[10px] uppercase tracking-[.1em] text-muted-foreground">30 min retention</span>} />
+    <Heading eyebrow="Runtime profiler" title="Usage & performance" detail="Samples are recorded every 10 seconds. Refresh to fetch the latest snapshot and retained history." action={<span className="rounded-full border border-border bg-card px-3 py-1.5 font-mono text-[10px] uppercase tracking-[.1em] text-muted-foreground">30 min retention</span>} />
     {usage.isError && <ErrorNotice message={errorText(usage.error, 'Profiler readings could not be loaded.')} retry={() => { void usage.refetch(); }} />}
     {usage.isLoading && <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[1,2,3,4].map((n) => <div key={n} className="h-32 animate-pulse rounded-xl border border-border bg-card p-5" />)}</div>}
     {!usage.isLoading && !usage.isError && !current && <div className="mt-8"><EmptyState title="No profiler sample yet" detail="The bot has not published a profiler snapshot. Start the process and refresh after the next sampling interval." /></div>}
@@ -253,7 +273,7 @@ function UsagePage() {
         <UsageMetric label="CPU" value={`${current.cpuPercent.toFixed(1)}%`} detail={`Threshold ${current.thresholds.cpuPercent}%`} percent={current.thresholds.cpuPercent ? current.cpuPercent / current.thresholds.cpuPercent * 100 : 0} pressure={current.pressure.cpu} icon={<Cpu size={16} />} />
         <UsageMetric label="Heap utilization" value={`${(current.memory.heapUtilization * 100).toFixed(1)}%`} detail={`${bytes(current.memory.heapUsed)} of ${bytes(current.memory.heapTotal)}`} percent={current.memory.heapUtilization * 100} pressure={current.pressure.memory} icon={<MemoryStick size={16} />} />
         <UsageMetric label="Event loop max" value={`${current.eventLoop.maxMs.toFixed(1)} ms`} detail={`Mean ${current.eventLoop.meanMs.toFixed(1)} ms · threshold ${current.thresholds.eventLoopLagMs} ms`} percent={current.thresholds.eventLoopLagMs ? current.eventLoop.maxMs / current.thresholds.eventLoopLagMs * 100 : 0} pressure={current.pressure.eventLoop} icon={<Activity size={16} />} />
-        <UsageMetric label="Gateway latency" value={current.gatewayLatencyMs === null ? '—' : `${current.gatewayLatencyMs} ms`} detail={`Cooldown multiplier ${current.cooldownMultiplier.toFixed(2)}×`} percent={Math.min(100, current.gatewayLatencyMs ?? 0)} pressure={false} icon={<Signal size={16} />} />
+        <UsageMetric label="Gateway latency" value={current.gatewayLatencyMs === null ? '—' : `${current.gatewayLatencyMs} ms`} detail={`Cooldown multiplier ${current.cooldownMultiplier.toFixed(2)}×`} percent={null} pressure={false} icon={<Signal size={16} />} />
       </section>
       <section className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
         <article className="rounded-xl border border-border bg-card p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-mono text-[10px] uppercase tracking-[.15em] text-muted-foreground">Memory footprint</p><h2 className="mt-1.5 text-base font-extrabold">Process allocation</h2></div><span className="font-mono text-[10px] text-muted-foreground">Sampled {stamp(current.sampledAt)}</span></div>
@@ -270,8 +290,8 @@ function UsagePage() {
     </div>}
   </PageFrame>;
 }
-function UsageMetric({ label, value, detail, percent, pressure, icon }: { label: string; value: string; detail: string; percent: number; pressure: boolean; icon: ReactNode }) {
-  return <div className={`rounded-xl border bg-card p-5 ${pressure ? 'border-rose-200' : 'border-border'}`}><div className="flex items-start justify-between"><p className="text-[11px] font-bold uppercase tracking-[.11em] text-muted-foreground">{label}</p><span className={`grid h-8 w-8 place-items-center rounded-lg ${pressure ? 'bg-rose-50 text-rose-700' : 'bg-[#f2edda] text-[#76652d]'}`}>{icon}</span></div><div className="mt-4 font-mono text-[25px] font-medium tracking-[-.05em]">{value}</div><p className="mt-1 min-h-8 text-[11px] leading-4 text-muted-foreground">{detail}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary"><div className={`h-full rounded-full ${pressure ? 'bg-rose-500' : 'metric-line'}`} style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} /></div></div>;
+function UsageMetric({ label, value, detail, percent, pressure, icon }: { label: string; value: string; detail: string; percent: number | null; pressure: boolean; icon: ReactNode }) {
+  return <div className={`rounded-xl border bg-card p-5 ${pressure ? 'border-rose-200' : 'border-border'}`}><div className="flex items-start justify-between"><p className="text-[11px] font-bold uppercase tracking-[.11em] text-muted-foreground">{label}</p><span className={`grid h-8 w-8 place-items-center rounded-lg ${pressure ? 'bg-rose-50 text-rose-700' : 'bg-[#f2edda] text-[#76652d]'}`}>{icon}</span></div><div className="mt-4 font-mono text-[25px] font-medium tracking-[-.05em]">{value}</div><p className="mt-1 min-h-8 text-[11px] leading-4 text-muted-foreground">{detail}</p>{percent !== null && <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary"><div className={`h-full rounded-full ${pressure ? 'bg-rose-500' : 'metric-line'}`} style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} /></div>}</div>;
 }
 function ModRow({ name, active, detail }: { name: string; active: boolean; detail: string }) {
   return <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"><div><p className="text-xs font-bold">{name}</p><p className="mt-1 text-[10px] text-muted-foreground">{detail}</p></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${active ? 'bg-emerald-50 text-emerald-800' : 'bg-stone-100 text-stone-600'}`}>{active ? 'Enabled' : 'Disabled'}</span></div>;
@@ -280,9 +300,6 @@ function HistoryRow({ sample }: { sample: ProfilerSnapshot }) {
   return <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-5 py-3 text-xs sm:px-6"><div><p className="font-semibold">{new Intl.DateTimeFormat(undefined, { timeStyle: 'medium' }).format(new Date(sample.sampledAt))}</p><p className="mt-1 text-[10px] text-muted-foreground">{stamp(sample.sampledAt)}</p></div><span className="font-mono">{sample.cpuPercent.toFixed(1)}% CPU</span><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${sample.pressure.cpu || sample.pressure.memory || sample.pressure.eventLoop ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}`}>{sample.pressure.cpu || sample.pressure.memory || sample.pressure.eventLoop ? 'Pressure' : 'Normal'}</span></div>;
 }
 
-function AuthenticatedPage({ page, component: Component }: { page: PageKey; component: () => JSX.Element }) {
-  return <Component />;
-}
 function Router() {
   const [location] = useLocation();
   return <ErrorBoundary resetKey={location}><Switch>

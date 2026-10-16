@@ -1,0 +1,1 @@
+- [Bot process ownership](bot-process-ownership.md) — the API server owns the only Discord bot process; avoid separate bot workflows.
