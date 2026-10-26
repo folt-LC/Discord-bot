@@ -5,6 +5,16 @@ import { ErrorBoundary } from '@/components/error-boundary';
 
 import './index.css';
 
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}service-worker.js`, {
+      scope: import.meta.env.BASE_URL,
+    }).catch((error: unknown) => {
+      console.warn('Mendive app shell service worker could not be registered.', error);
+    });
+  });
+}
+
 createRoot(document.getElementById('root')!, {
   // Keeps caught errors off reportError(), which would raise the dev overlay.
   onCaughtError: (error, errorInfo) => {

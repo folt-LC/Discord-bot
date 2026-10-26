@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import {
   Activity, AlertTriangle, ArrowDownToLine, ArrowUpRight, Bot, Check, ChevronRight, CircleAlert,
   Clock3, Code2, Copy, Cpu, Fingerprint, Gauge, HardDrive, KeyRound, LoaderCircle, LockKeyhole,
-  LogOut, MemoryStick, RefreshCw, Router as RouterIcon, Server, ShieldCheck, Signal, SignalZero, Terminal,
+  Download, LogOut, MemoryStick, RefreshCw, Router as RouterIcon, Server, ShieldCheck, Signal, SignalZero, Terminal,
   Users, X,
 } from 'lucide-react';
 import {
@@ -62,6 +62,122 @@ function LoadingFrame({ label = 'Checking secure session' }: { label?: string })
 function Brand() {
   return <div className="mb-7 flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#20352f] text-[#e1c875]"><Bot size={20} /></div><div><p className="text-sm font-extrabold tracking-[.1em]">MENDIVE</p><p className="font-mono text-[10px] uppercase tracking-[.18em] text-muted-foreground">Bot operations</p></div></div>;
 }
+type DeferredInstallPrompt = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform?: string }>;
+};
+function InstallAppControl({ compact = false }: { compact?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [installed, setInstalled] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<DeferredInstallPrompt | null>(null);
+
+  useEffect(() => {
+    const isStandalone = () =>
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    const handlePrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as DeferredInstallPrompt);
+    };
+    const handleInstalled = () => {
+      setInstalled(true);
+      setOpen(false);
+    };
+
+    setInstalled(isStandalone());
+    window.addEventListener('beforeinstallprompt', handlePrompt);
+    window.addEventListener('appinstalled', handleInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handlePrompt);
+      window.removeEventListener('appinstalled', handleInstalled);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [open]);
+
+  async function openOrInstall() {
+    if (installPrompt) {
+      try {
+        await installPrompt.prompt();
+        const result = await installPrompt.userChoice;
+        setInstallPrompt(null);
+        if (result.outcome === 'accepted') {
+          setInstalled(true);
+          return;
+        }
+      } catch (error) {
+        console.warn('The browser install prompt was unavailable.', error);
+      }
+    }
+    setOpen(true);
+  }
+
+  return <>
+    <button
+      type="button"
+      data-testid="button-install-app"
+      onClick={() => void openOrInstall()}
+      aria-label={installed ? 'View app installation help' : 'Install Mendive dashboard app'}
+      className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-[#d5ded8] bg-white font-semibold text-[#36463e] transition hover:border-primary/40 hover:text-primary ${compact ? 'h-9 px-2.5 text-[11px] sm:px-3 sm:text-xs' : 'h-10 w-full px-4 text-xs'}`}
+    >
+      <Download size={15} />
+      <span>{installed ? 'App installed' : compact ? <><span className="sm:hidden">App</span><span className="hidden sm:inline">Install app</span></> : 'Install app'}</span>
+    </button>
+    {open && <div
+      className="fixed inset-0 z-[100] grid place-items-center bg-[#17241f]/45 p-4"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) setOpen(false);
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="install-app-title"
+        className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl sm:p-7"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[.17em] text-primary">Quick access</p>
+            <h2 id="install-app-title" className="mt-1.5 text-xl font-extrabold tracking-tight">Add Mendive to your iPhone</h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Close installation instructions"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground hover:bg-secondary"
+          ><X size={16} /></button>
+        </div>
+        {installed ? (
+          <p className="mt-5 rounded-lg bg-[#edf4ee] p-3.5 text-sm leading-6 text-[#315744]">Mendive is installed on this device. Open it from your Home Screen. You may need to sign in the first time.</p>
+        ) : (
+          <>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">Use Safari to add this website as an app-style icon. It opens the same secure dashboard in its own window.</p>
+            <ol className="mt-5 space-y-3.5">
+              {[
+                'Open this dashboard in Safari on your iPhone. If it opened inside another app, choose Open in Safari first.',
+                'Tap Safari’s Share button (the square with an upward arrow).',
+                'Choose “Add to Home Screen.” If “Open as Web App” appears, leave it enabled.',
+                'Tap “Add,” then open Mendive from the new Home Screen icon and sign in.',
+              ].map((step, index) => <li key={step} className="flex items-start gap-3 text-sm leading-5">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#e8eddf] font-mono text-[11px] font-bold text-[#315744]">{index + 1}</span>
+                <span className="pt-0.5">{step}</span>
+              </li>)}
+            </ol>
+            <p className="mt-5 rounded-lg border border-border bg-secondary/50 px-3.5 py-3 text-xs leading-5 text-muted-foreground">This is an app-style version of the website, not an App Store download. Keep an internet connection for live bot status and controls.</p>
+          </>
+        )}
+      </section>
+    </div>}
+  </>;
+}
 function LoginPage() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -93,7 +209,7 @@ function LoginPage() {
           {login.isError && <div role="alert" data-testid="status-login-error" className="flex gap-2.5 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-800"><CircleAlert size={16} className="mt-0.5 shrink-0" />{errorText(login.error, 'Unable to sign in. Check your password and try again.')}</div>}
           <button data-testid="button-login" type="submit" disabled={!password.trim() || login.isPending} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#244b3d] px-4 text-sm font-bold text-white transition hover:bg-[#1d3d32] disabled:cursor-not-allowed disabled:opacity-50">{login.isPending ? <><LoaderCircle size={16} className="animate-spin" />Verifying access</> : <>Continue <ChevronRight size={16} /></>}</button>
         </form><div className="mt-7 flex items-center gap-2 border-t border-border pt-5 text-[11px] leading-5 text-muted-foreground"><ShieldCheck size={14} className="shrink-0 text-primary" />Session is protected by a same-origin secure cookie.</div>
-      </div><p className="mt-5 text-center font-mono text-[10px] uppercase tracking-[.12em] text-muted-foreground/75">Mendive · private control plane</p>
+      </div><div className="mt-4"><InstallAppControl /></div><p className="mt-5 text-center font-mono text-[10px] uppercase tracking-[.12em] text-muted-foreground/75">Mendive · private control plane</p>
     </section>
   </main>;
 }
@@ -131,7 +247,7 @@ function Shell({ children, page, onRefresh, refreshing }: { children: ReactNode;
       <header className="flex min-h-[68px] items-center justify-between border-b border-[#dce3de] bg-[#f8f9f5] px-4 sm:px-8 lg:px-11">
         <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#20352f] text-[#e1c875] md:hidden"><Bot size={17} /></span><span className="hidden sm:inline">Control plane</span><ChevronRight size={13} className="hidden sm:block" /><span className="font-semibold text-foreground">{title}</span></div>
         <nav className="flex gap-1 overflow-x-auto md:hidden">{navItems.map((item) => <Link key={item.key} href={item.path} data-testid={`mobile-nav-${item.key}`} className={`whitespace-nowrap rounded-md px-2.5 py-2 text-[11px] font-semibold ${page === item.key ? 'bg-[#20352f] text-[#e1c875]' : 'text-muted-foreground'}`}>{item.label}</Link>)}</nav>
-        <div className="flex items-center gap-2"><div className="hidden items-center gap-2 rounded-full border border-[#dce3de] bg-white px-3 py-1.5 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-[#38936e]" /><span className="font-mono text-[10px] uppercase tracking-[.09em] text-muted-foreground">Session secure</span></div><button data-testid="button-refresh-page" onClick={onRefresh} disabled={refreshing} aria-label="Refresh current view" className="grid h-9 w-9 place-items-center rounded-lg border border-[#dce3de] bg-white text-muted-foreground transition hover:text-primary disabled:opacity-50"><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} /></button><button data-testid="button-logout-mobile" onClick={signOut} disabled={logout.isPending} aria-label="Sign out" className="grid h-9 w-9 place-items-center rounded-lg border border-[#dce3de] bg-white text-muted-foreground hover:text-rose-700 md:hidden"><LogOut size={15} /></button></div>
+         <div className="flex items-center gap-2"><div className="hidden items-center gap-2 rounded-full border border-[#dce3de] bg-white px-3 py-1.5 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-[#38936e]" /><span className="font-mono text-[10px] uppercase tracking-[.09em] text-muted-foreground">Session secure</span></div><InstallAppControl compact /><button data-testid="button-refresh-page" onClick={onRefresh} disabled={refreshing} aria-label="Refresh current view" className="grid h-9 w-9 place-items-center rounded-lg border border-[#dce3de] bg-white text-muted-foreground transition hover:text-primary disabled:opacity-50"><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} /></button><button data-testid="button-logout-mobile" onClick={signOut} disabled={logout.isPending} aria-label="Sign out" className="grid h-9 w-9 place-items-center rounded-lg border border-[#dce3de] bg-white text-muted-foreground hover:text-rose-700 md:hidden"><LogOut size={15} /></button></div>
       </header>
       <div className="ops-grid mx-auto max-w-[1280px] px-4 py-7 sm:px-8 sm:py-9 lg:px-11">{children}<footer className="mt-9 flex flex-col gap-2 border-t border-[#d9e1db] pt-4 text-[10px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between"><span className="font-mono uppercase tracking-[.11em]">Mendive control plane <span className="mx-1.5 text-[#a5b2aa]">/</span> private instance</span><span className="flex items-center gap-1.5"><ShieldCheck size={12} />Authenticated operator view</span></footer></div>
     </main>
