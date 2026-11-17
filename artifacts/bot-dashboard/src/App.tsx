@@ -22,9 +22,12 @@ import { Route, Switch, useLocation, Router as WouterRouter, Link } from 'wouter
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: 3,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
       staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
+      // An installed iPhone app may be suspended for a long time. Refetching
+      // active queries on resume also wakes the autoscaled API service.
+      refetchOnWindowFocus: 'always',
     },
   },
 });
@@ -68,7 +71,11 @@ type DeferredInstallPrompt = Event & {
 };
 function InstallAppControl({ compact = false }: { compact?: boolean }) {
   const [open, setOpen] = useState(false);
-  const [installed, setInstalled] = useState(false);
+  const [installed, setInstalled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(display-mode: standalone)').matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  });
   const [installPrompt, setInstallPrompt] = useState<DeferredInstallPrompt | null>(null);
 
   useEffect(() => {
@@ -119,6 +126,8 @@ function InstallAppControl({ compact = false }: { compact?: boolean }) {
     setOpen(true);
   }
 
+  if (installed) return null;
+
   return <>
     <button
       type="button"
@@ -155,25 +164,19 @@ function InstallAppControl({ compact = false }: { compact?: boolean }) {
             className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground hover:bg-secondary"
           ><X size={16} /></button>
         </div>
-        {installed ? (
-          <p className="mt-5 rounded-lg bg-[#edf4ee] p-3.5 text-sm leading-6 text-[#315744]">Mendive is installed on this device. Open it from your Home Screen. You may need to sign in the first time.</p>
-        ) : (
-          <>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Use Safari to add this website as an app-style icon. It opens the same secure dashboard in its own window.</p>
-            <ol className="mt-5 space-y-3.5">
-              {[
-                'Open this dashboard in Safari on your iPhone. If it opened inside another app, choose Open in Safari first.',
-                'Tap Safari’s Share button (the square with an upward arrow).',
-                'Choose “Add to Home Screen.” If “Open as Web App” appears, leave it enabled.',
-                'Tap “Add,” then open Mendive from the new Home Screen icon and sign in.',
-              ].map((step, index) => <li key={step} className="flex items-start gap-3 text-sm leading-5">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#e8eddf] font-mono text-[11px] font-bold text-[#315744]">{index + 1}</span>
-                <span className="pt-0.5">{step}</span>
-              </li>)}
-            </ol>
-            <p className="mt-5 rounded-lg border border-border bg-secondary/50 px-3.5 py-3 text-xs leading-5 text-muted-foreground">This is an app-style version of the website, not an App Store download. Keep an internet connection for live bot status and controls.</p>
-          </>
-        )}
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">Use Safari to add this website as an app-style icon. It opens the same secure dashboard in its own window.</p>
+        <ol className="mt-5 space-y-3.5">
+          {[
+            'Open the published dashboard address in Safari on your iPhone. If it opened inside another app, choose Open in Safari first.',
+            'Tap Safari’s Share button (the square with an upward arrow).',
+            'Choose “Add to Home Screen.” If “Open as Web App” appears, leave it enabled.',
+            'Tap “Add,” then open Mendive from the new Home Screen icon and sign in.',
+          ].map((step, index) => <li key={step} className="flex items-start gap-3 text-sm leading-5">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#e8eddf] font-mono text-[11px] font-bold text-[#315744]">{index + 1}</span>
+            <span className="pt-0.5">{step}</span>
+          </li>)}
+        </ol>
+        <p className="mt-5 rounded-lg border border-border bg-secondary/50 px-3.5 py-3 text-xs leading-5 text-muted-foreground">Use the published address for a lasting Home Screen app. Replit preview links can stop when the workspace stops. This is an app-style website, not an App Store download, and live bot controls require internet.</p>
       </section>
     </div>}
   </>;
@@ -246,7 +249,7 @@ function Shell({ children, page, onRefresh, refreshing }: { children: ReactNode;
     <main className="min-w-0 flex-1">
       <header className="flex min-h-[68px] items-center justify-between border-b border-[#dce3de] bg-[#f8f9f5] px-4 sm:px-8 lg:px-11">
         <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#20352f] text-[#e1c875] md:hidden"><Bot size={17} /></span><span className="hidden sm:inline">Control plane</span><ChevronRight size={13} className="hidden sm:block" /><span className="font-semibold text-foreground">{title}</span></div>
-        <nav className="flex gap-1 overflow-x-auto md:hidden">{navItems.map((item) => <Link key={item.key} href={item.path} data-testid={`mobile-nav-${item.key}`} className={`whitespace-nowrap rounded-md px-2.5 py-2 text-[11px] font-semibold ${page === item.key ? 'bg-[#20352f] text-[#e1c875]' : 'text-muted-foreground'}`}>{item.label}</Link>)}</nav>
+        <nav className="flex gap-2 overflow-x-auto md:hidden">{navItems.map((item) => <Link key={item.key} href={item.path} data-testid={`mobile-nav-${item.key}`} className={`inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-3 text-[11px] font-semibold ${page === item.key ? 'bg-[#20352f] text-[#e1c875]' : 'text-muted-foreground'}`}>{item.label}</Link>)}</nav>
          <div className="flex items-center gap-2"><div className="hidden items-center gap-2 rounded-full border border-[#dce3de] bg-white px-3 py-1.5 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-[#38936e]" /><span className="font-mono text-[10px] uppercase tracking-[.09em] text-muted-foreground">Session secure</span></div><InstallAppControl compact /><button data-testid="button-refresh-page" onClick={onRefresh} disabled={refreshing} aria-label="Refresh current view" className="grid h-9 w-9 place-items-center rounded-lg border border-[#dce3de] bg-white text-muted-foreground transition hover:text-primary disabled:opacity-50"><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} /></button><button data-testid="button-logout-mobile" onClick={signOut} disabled={logout.isPending} aria-label="Sign out" className="grid h-9 w-9 place-items-center rounded-lg border border-[#dce3de] bg-white text-muted-foreground hover:text-rose-700 md:hidden"><LogOut size={15} /></button></div>
       </header>
       <div className="ops-grid mx-auto max-w-[1280px] px-4 py-7 sm:px-8 sm:py-9 lg:px-11">{children}<footer className="mt-9 flex flex-col gap-2 border-t border-[#d9e1db] pt-4 text-[10px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between"><span className="font-mono uppercase tracking-[.11em]">Mendive control plane <span className="mx-1.5 text-[#a5b2aa]">/</span> private instance</span><span className="flex items-center gap-1.5"><ShieldCheck size={12} />Authenticated operator view</span></footer></div>

@@ -445,7 +445,7 @@ body {
 }
 
 button, input { font: inherit; }
-button { -webkit-tap-highlight-color: transparent; }
+button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
 .ops-grid {
   background-image: radial-gradient(hsl(158 22% 15% / .045) .7px, transparent .7px);
@@ -474,3 +474,17 @@ button { -webkit-tap-highlight-color: transparent; }
 .font-display { font-family: 'Space Grotesk', sans-serif; }
 .metric-line { background: linear-gradient(90deg, hsl(158 33% 31%), hsl(43 72% 59%)); }
 .log-scroll { scrollbar-color: hsl(157 11% 42%) transparent; scrollbar-width: thin; }
+
+@media (max-width: 640px) {
+  button,
+  [role='button'] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  a[data-testid^='mobile-nav-'] {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+}
